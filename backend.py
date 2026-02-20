@@ -186,7 +186,7 @@ def index():
 # --- Health ---
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok", "port": request.host.split(":")[-1]})
+    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None})
 
 
 # --- Models ---
