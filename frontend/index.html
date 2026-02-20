@@ -830,6 +830,7 @@
       <div style="flex:1;min-width:0;display:flex;align-items:center;gap:14px">
         <!-- Equalizer -->
         <div id="eq-container" class="hidden sm:flex items-end" style="height:16px;flex-shrink:0"></div>
+        <div class="hidden sm:block" style="width:1px;height:28px;background:var(--text-faint);opacity:0.25;flex-shrink:0"></div>
         <!-- Text -->
         <div style="min-width:0;flex:1">
           <p id="np-prompt"
@@ -1252,12 +1253,12 @@
       const btn = histItem.querySelector('.align-btn');
       if (!btn) return;
       btn.classList.remove('is-loading', 'is-ready');
-      const penSVG = '<svg class="align-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+      const waveSVG = '<svg class="align-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="4" y1="8" x2="4" y2="16"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="10" x2="20" y2="14"/></svg>';
       const checkSVG = '<svg class="align-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
       if (state === 'loading') {
         btn.disabled = true;
         btn.classList.add('is-loading');
-        btn.innerHTML = penSVG;
+        btn.innerHTML = waveSVG;
         btn.title = 'Aligning...';
       } else if (state === 'ready') {
         btn.disabled = false;
@@ -1266,7 +1267,7 @@
         btn.title = 'Alignment ready';
       } else {
         btn.disabled = false;
-        btn.innerHTML = penSVG;
+        btn.innerHTML = waveSVG;
         btn.title = 'Align words';
         btn.style.color = '';
       }
@@ -1419,7 +1420,7 @@
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="9" x2="10" y2="9"/></svg>
         </button>
         ${STATE.alignmentAvailable ? `<button class="align-btn" onclick="triggerAlignment('${esc(h.filename)}')" title="${h.alignment_status === 'ready' ? 'Alignment ready' : 'Align words'}" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:${h.alignment_status === 'ready' ? 'var(--teal)' : 'var(--text-faint)'};background:transparent;border:none;cursor:pointer;transition:all 0.2s;flex-shrink:0" onmouseover="this.style.background='rgba(78,205,196,0.08)'" onmouseout="this.style.background='transparent'">
-          <svg class="align-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <svg class="align-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="4" y1="8" x2="4" y2="16"/><line x1="8" y1="5" x2="8" y2="19"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="10" x2="20" y2="14"/></svg>
         </button>` : ''}
       </div>
       <div class="hist-text-expand" style="display:none;padding:0 16px 12px 62px">
