@@ -372,7 +372,10 @@ tailwind.config = {
 
     <!-- Actions -->
     <div class="flex items-center gap-1" style="flex-shrink:0">
-      <a id="np-download" href="#" download title="Download" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none" onmouseover="this.style.color='var(--teal)';this.style.background='rgba(78,205,196,0.08)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
+      <button id="np-mp3" onclick="convertToMp3()" title="Convert to MP3" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--accent)';this.style.background='rgba(255,230,109,0.1)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5h3l2-3h3l2 3h3"/><path d="M2.5 4.5v7.5h10v-7.5"/><text x="4.2" y="10.5" fill="currentColor" stroke="none" style="font:bold 5px sans-serif">MP3</text></svg>
+      </button>
+      <a id="np-download" href="#" download title="Download WAV" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none" onmouseover="this.style.color='var(--teal)';this.style.background='rgba(78,205,196,0.08)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
         <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7.5 2v8M4.5 7l3 3 3-3M2 12.5h11"/></svg>
       </a>
       <button id="np-delete" onclick="deleteNowPlaying()" title="Delete" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s" onmouseover="this.style.color='var(--coral)';this.style.background='rgba(255,107,107,0.08)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
@@ -671,6 +674,44 @@ audioEl.addEventListener('timeupdate', () => {
 });
 seekBar.addEventListener('input', () => { if (audioEl.duration) { audioEl.currentTime = (seekBar.value/100)*audioEl.duration; $('#seek-fill').style.width = seekBar.value+'%'; } });
 function fmtTime(s) { return Math.floor(s/60)+':'+Math.floor(s%60).toString().padStart(2,'0'); }
+
+function convertToMp3() {
+  if (!STATE.nowPlaying) return;
+  const btn = $('#np-mp3');
+  const originalHTML = btn.innerHTML;
+  btn.disabled = true;
+
+  const es = new EventSource(`/api/audio/${STATE.nowPlaying.filename}/mp3-convert`);
+
+  function resetBtn() { btn.innerHTML = originalHTML; btn.disabled = false; }
+
+  es.onmessage = async (ev) => {
+    const d = JSON.parse(ev.data);
+    if (d.phase === 'converting') {
+      btn.innerHTML = `<span class="font-mono" style="font-size:10px;font-weight:600;color:var(--accent-500,var(--accent,#FFE66D))">${d.progress}%</span>`;
+    } else if (d.phase === 'done') {
+      es.close();
+      btn.innerHTML = `<span class="font-mono" style="font-size:10px;font-weight:600;color:var(--teal)">100%</span>`;
+      try {
+        const res = await fetch(`/api/audio/${STATE.nowPlaying.filename}/mp3`);
+        if (!res.ok) throw new Error('Download failed');
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = STATE.nowPlaying.filename.replace('.wav', '.mp3');
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+        toast('MP3 downloaded');
+      } catch (e) { toast(e.message, 'error'); }
+      finally { resetBtn(); }
+    } else if (d.phase === 'error') {
+      es.close(); resetBtn();
+      toast(d.message || 'Conversion failed', 'error');
+    }
+  };
+
+  es.onerror = () => { es.close(); resetBtn(); toast('Conversion failed', 'error'); };
+}
 
 async function deleteNowPlaying() {
   if (!STATE.nowPlaying) return;

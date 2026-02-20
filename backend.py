@@ -4,7 +4,9 @@ import argparse
 import json
 import os
 import re
+import shutil
 import socket
+import subprocess
 import time
 import threading
 from datetime import datetime
@@ -382,6 +384,103 @@ def delete_audio(filename):
     if deleted:
         return jsonify({"status": "deleted", "filename": filename})
     return jsonify({"error": "File not found"}), 404
+
+
+# --- Locate ffmpeg helper ---
+def _find_ffmpeg():
+    bin_dir = os.path.join(os.path.dirname(__file__), "bin")
+    local = os.path.join(bin_dir, "ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+    return local if os.path.isfile(local) else shutil.which("ffmpeg")
+
+
+# --- Serve cached MP3 ---
+@app.route("/api/audio/<filename>/mp3")
+def serve_mp3(filename):
+    if not filename.endswith(".wav"):
+        return jsonify({"error": "Only .wav files can be converted"}), 400
+    mp3_name = filename.rsplit(".", 1)[0] + ".mp3"
+    mp3_path = os.path.join(AUDIO_DIR, mp3_name)
+    if not os.path.exists(mp3_path):
+        return jsonify({"error": "MP3 not found — convert first"}), 404
+    return send_from_directory(AUDIO_DIR, mp3_name, as_attachment=True)
+
+
+# --- Convert WAV to MP3 with SSE progress ---
+@app.route("/api/audio/<filename>/mp3-convert")
+def convert_to_mp3(filename):
+    if not filename.endswith(".wav"):
+        return jsonify({"error": "Only .wav files can be converted"}), 400
+    wav_path = os.path.join(AUDIO_DIR, filename)
+    if not os.path.exists(wav_path):
+        return jsonify({"error": "File not found"}), 404
+
+    mp3_name = filename.rsplit(".", 1)[0] + ".mp3"
+    mp3_path = os.path.join(AUDIO_DIR, mp3_name)
+
+    # Already converted — instant done
+    if os.path.exists(mp3_path):
+        def _done():
+            yield f"data: {json.dumps({'phase': 'done', 'progress': 100})}\n\n"
+        return Response(
+            _done(), mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+        )
+
+    ffmpeg = _find_ffmpeg()
+    if not ffmpeg:
+        return jsonify({"error": "ffmpeg not found. Place ffmpeg in bin/ or install it system-wide."}), 501
+
+    # Get total duration for progress calculation
+    total_duration = 0.0
+    json_path = wav_path.rsplit(".", 1)[0] + ".json"
+    if os.path.exists(json_path):
+        with open(json_path) as f:
+            total_duration = json.load(f).get("duration_seconds", 0.0)
+    if total_duration <= 0:
+        try:
+            info = sf.info(wav_path)
+            total_duration = info.duration
+        except Exception:
+            pass
+
+    def stream():
+        yield f"data: {json.dumps({'phase': 'converting', 'progress': 0})}\n\n"
+
+        proc = subprocess.Popen(
+            [ffmpeg, "-i", wav_path, "-codec:a", "libmp3lame", "-qscale:a", "2",
+             "-progress", "pipe:1", "-nostats", "-y", mp3_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, bufsize=1,
+        )
+
+        last_pct = 0
+        for line in proc.stdout:
+            line = line.strip()
+            if line.startswith("out_time_us="):
+                try:
+                    us = int(line.split("=", 1)[1])
+                    if total_duration > 0:
+                        pct = min(99, int((us / 1_000_000) / total_duration * 100))
+                        if pct > last_pct:
+                            last_pct = pct
+                            yield f"data: {json.dumps({'phase': 'converting', 'progress': pct})}\n\n"
+                except (ValueError, ZeroDivisionError):
+                    pass
+            elif line == "progress=end":
+                break
+
+        proc.wait(timeout=30)
+
+        if proc.returncode == 0:
+            yield f"data: {json.dumps({'phase': 'done', 'progress': 100})}\n\n"
+        else:
+            err = proc.stderr.read()[:200] if proc.stderr else "Unknown error"
+            yield f"data: {json.dumps({'phase': 'error', 'message': err})}\n\n"
+
+    return Response(
+        stream(), mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
 
 
 # --- Serve audio files ---
