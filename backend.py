@@ -1,6 +1,7 @@
 """KittenTTS Studio — Flask API Server"""
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -65,6 +66,13 @@ VOICES = ["Bella", "Jasper", "Luna", "Bruno", "Rosie", "Hugo", "Kiki", "Leo"]
 # Cache of loaded KittenTTS model instances: {model_id: KittenTTS}
 loaded_models = {}
 model_lock = threading.Lock()
+
+# Alignment model (stable-ts / Whisper) — optional feature
+alignment_model = None
+alignment_lock = threading.Lock()
+alignment_available = None  # None = not checked yet, True/False after first check
+alignment_tasks = {}        # {basename: threading.Thread}
+alignment_tasks_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -186,7 +194,7 @@ def index():
 # --- Health ---
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None})
+    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available()})
 
 
 # --- Models ---
@@ -355,6 +363,10 @@ def generate():
     with open(os.path.join(AUDIO_DIR, json_name), "w") as f:
         json.dump(metadata, f, indent=2)
 
+    # Kick off background alignment
+    _start_alignment(basename)
+    metadata["alignment_status"] = "pending" if _check_alignment_available() else "unavailable"
+
     return jsonify(metadata)
 
 
@@ -386,11 +398,188 @@ def delete_audio(filename):
     return jsonify({"error": "File not found"}), 404
 
 
+# --- Word alignment for karaoke ---
+@app.route("/api/audio/<filename>/alignment")
+def get_alignment(filename):
+    """Return alignment data, triggering retroactive alignment for old files."""
+    if not filename.endswith(".wav"):
+        return jsonify({"error": "Expected .wav filename"}), 400
+
+    basename = filename.rsplit(".", 1)[0]
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+
+    if not os.path.exists(json_path):
+        return jsonify({"error": "Metadata not found"}), 404
+
+    if not _check_alignment_available():
+        return jsonify({"status": "unavailable"})
+
+    with open(json_path, "r") as f:
+        metadata = json.load(f)
+
+    status = metadata.get("alignment_status")
+
+    if status == "ready":
+        return jsonify({
+            "status": "ready",
+            "word_alignment": metadata.get("word_alignment", []),
+        })
+
+    if status == "failed":
+        # Retry — previous failure may have been due to a fixable issue
+        _start_alignment(basename)
+        return jsonify({"status": "aligning"})
+
+    if status == "aligning":
+        # Check if thread is actually still running (may have crashed)
+        with alignment_tasks_lock:
+            if basename not in alignment_tasks:
+                _start_alignment(basename)
+        return jsonify({"status": "aligning"})
+
+    # No alignment attempted yet (old file) — trigger retroactive alignment
+    _start_alignment(basename)
+    return jsonify({"status": "aligning"})
+
+
 # --- Locate ffmpeg helper ---
 def _find_ffmpeg():
     bin_dir = os.path.join(os.path.dirname(__file__), "bin")
     local = os.path.join(bin_dir, "ffmpeg.exe" if os.name == "nt" else "ffmpeg")
     return local if os.path.isfile(local) else shutil.which("ffmpeg")
+
+
+ALIGNMENT_VERSION = 2  # Bump when alignment logic changes to invalidate cached data
+
+# --- Alignment helpers (stable-ts) ---
+
+def _check_alignment_available():
+    """Check if stable-ts is importable. Cached after first call."""
+    global alignment_available
+    if alignment_available is not None:
+        return alignment_available
+    try:
+        import stable_whisper  # noqa: F401
+        alignment_available = True
+    except ImportError:
+        alignment_available = False
+    return alignment_available
+
+
+def _load_alignment_model():
+    """Load (or return cached) stable-ts Whisper tiny.en model."""
+    global alignment_model
+    if alignment_model is not None:
+        return alignment_model
+    import stable_whisper
+    with alignment_lock:
+        if alignment_model is None:
+            alignment_model = stable_whisper.load_model("tiny.en")
+    return alignment_model
+
+
+def _run_alignment(wav_path, prompt_text):
+    """Run forced alignment. Returns list of {word, begin, end} or None."""
+    try:
+        model = _load_alignment_model()
+        # Load audio as numpy array to avoid stable-ts needing ffmpeg in PATH
+        audio, sr = sf.read(wav_path, dtype="float32")
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        # Whisper expects 16kHz — resample if needed (KittenTTS outputs 24kHz)
+        if sr != 16000:
+            target_len = int(len(audio) * 16000 / sr)
+            audio = np.interp(
+                np.linspace(0, len(audio), target_len, endpoint=False),
+                np.arange(len(audio)),
+                audio,
+            ).astype(np.float32)
+        result = model.align(audio, prompt_text, language="en", fast_mode=True)
+        alignment = []
+        for w in result.all_words():
+            word_text = w.word.strip()
+            if word_text:
+                alignment.append({
+                    "word": word_text,
+                    "begin": round(w.start, 3),
+                    "end": round(w.end, 3),
+                })
+        return alignment if alignment else None
+    except Exception as e:
+        print(f"[alignment] Error aligning {wav_path}: {e}")
+        return None
+
+
+def _audio_hash(wav_path):
+    """Compute SHA-256 hash of audio file for cache validation."""
+    h = hashlib.sha256()
+    with open(wav_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _background_align(basename):
+    """Run alignment in background thread, update metadata JSON when done."""
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+    wav_path = os.path.join(AUDIO_DIR, basename + ".wav")
+
+    if not os.path.exists(json_path) or not os.path.exists(wav_path):
+        return
+
+    try:
+        with open(json_path, "r") as f:
+            metadata = json.load(f)
+
+        # Check if alignment is cached, audio hasn't changed, and version matches
+        current_hash = _audio_hash(wav_path)
+        if (metadata.get("alignment_status") == "ready"
+                and metadata.get("audio_hash") == current_hash
+                and metadata.get("alignment_version") == ALIGNMENT_VERSION
+                and metadata.get("word_alignment")):
+            return
+
+        metadata["alignment_status"] = "aligning"
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        prompt_text = metadata.get("prompt", "")
+        if not prompt_text.strip():
+            metadata["alignment_status"] = "failed"
+            with open(json_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+            return
+
+        alignment = _run_alignment(wav_path, prompt_text)
+
+        if alignment:
+            metadata["alignment_status"] = "ready"
+            metadata["word_alignment"] = alignment
+            metadata["audio_hash"] = current_hash
+            metadata["alignment_version"] = ALIGNMENT_VERSION
+        else:
+            metadata["alignment_status"] = "failed"
+
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+    except Exception as e:
+        print(f"[alignment] Background align failed for {basename}: {e}")
+    finally:
+        with alignment_tasks_lock:
+            alignment_tasks.pop(basename, None)
+
+
+def _start_alignment(basename):
+    """Spawn alignment thread if not already running for this file."""
+    if not _check_alignment_available():
+        return
+    with alignment_tasks_lock:
+        if basename in alignment_tasks:
+            return
+        t = threading.Thread(target=_background_align, args=(basename,), daemon=True)
+        alignment_tasks[basename] = t
+        t.start()
 
 
 # --- Serve cached MP3 ---

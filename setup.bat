@@ -4,6 +4,12 @@ cd /d "%~dp0"
 
 echo Setting up KittenTTS Studio...
 
+:: If venv already exists, skip Python install entirely
+if exist venv\Scripts\python.exe (
+    echo Existing venv found, skipping Python setup.
+    goto :install_deps
+)
+
 set "LOCAL_PY=%~dp0python312\python.exe"
 
 :: If local Python 3.12 already installed, skip download
@@ -44,10 +50,12 @@ if not exist venv (
     "%LOCAL_PY%" -m venv venv
 )
 
+:install_deps
 call venv\Scripts\activate.bat
 
 echo Installing dependencies...
 pip install -r requirements.txt
 
+echo.
 echo Setup complete! Run runner.bat to start.
 pause
