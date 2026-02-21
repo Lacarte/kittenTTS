@@ -25,8 +25,10 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------------
 
 AUDIO_DIR = os.path.join(os.path.dirname(__file__), "audio")
+TRASH_DIR = os.path.join(AUDIO_DIR, "TRASH")
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "frontend")
 os.makedirs(AUDIO_DIR, exist_ok=True)
+os.makedirs(TRASH_DIR, exist_ok=True)
 
 MODELS = {
     "mini": {
@@ -417,25 +419,37 @@ def list_audio():
     if not os.path.exists(AUDIO_DIR):
         return jsonify(files)
     for fname in sorted(os.listdir(AUDIO_DIR), reverse=True):
-        if fname.endswith(".json"):
+        if fname.endswith(".json") and os.path.isfile(os.path.join(AUDIO_DIR, fname)):
             with open(os.path.join(AUDIO_DIR, fname), "r") as f:
                 files.append(json.load(f))
     return jsonify(files)
 
 
-# --- Delete audio file ---
+# --- Delete audio file (move to TRASH) ---
 @app.route("/api/audio/<filename>", methods=["DELETE"])
 def delete_audio(filename):
-    wav_path = os.path.join(AUDIO_DIR, filename)
-    json_path = wav_path.rsplit(".", 1)[0] + ".json"
-    deleted = False
-    for p in [wav_path, json_path]:
-        if os.path.exists(p):
-            os.remove(p)
-            deleted = True
-    if deleted:
+    basename = filename.rsplit(".", 1)[0]
+    moved = False
+    # Move all related files (wav, json, enhanced, cleaned, mp3 variants)
+    for f in os.listdir(AUDIO_DIR):
+        if f.startswith(basename) and os.path.isfile(os.path.join(AUDIO_DIR, f)):
+            shutil.move(os.path.join(AUDIO_DIR, f), os.path.join(TRASH_DIR, f))
+            moved = True
+    if moved:
         return jsonify({"status": "deleted", "filename": filename})
     return jsonify({"error": "File not found"}), 404
+
+
+# --- Delete all audio files (move to TRASH) ---
+@app.route("/api/audio", methods=["DELETE"])
+def delete_all_audio():
+    count = 0
+    for f in os.listdir(AUDIO_DIR):
+        fp = os.path.join(AUDIO_DIR, f)
+        if os.path.isfile(fp):
+            shutil.move(fp, os.path.join(TRASH_DIR, f))
+            count += 1
+    return jsonify({"status": "deleted", "count": count})
 
 
 # --- Word alignment for karaoke ---

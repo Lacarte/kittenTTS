@@ -955,7 +955,15 @@
           <div class="flex items-center justify-between mb-4">
             <label class="text-[11px] font-bold uppercase tracking-[0.15em]"
               style="color:var(--text-muted)">History</label>
-            <span id="history-count" class="font-mono" style="font-size:11px;color:var(--text-faint)">0 files</span>
+            <div class="flex items-center gap-2">
+              <span id="history-count" class="font-mono" style="font-size:11px;color:var(--text-faint)">0 files</span>
+              <button id="delete-all-btn" onclick="deleteAllAudio()" title="Delete all audio"
+                style="display:none;width:26px;height:26px;border-radius:7px;align-items:center;justify-content:center;color:var(--text-faint);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
+                onmouseover="this.style.color='var(--coral)';this.style.background='rgba(255,107,107,0.08)'"
+                onmouseout="this.style.color='var(--text-faint)';this.style.background='transparent'">
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6"/></svg>
+              </button>
+            </div>
           </div>
           <div id="history-list" class="lg:max-h-none" style="max-height:320px;overflow-y:auto;padding-right:4px">
             <p id="history-empty" style="text-align:center;padding:32px 0;font-size:13px;color:var(--text-faint)">No
@@ -1050,7 +1058,7 @@
           style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:#A78BFA;background:transparent;border:none;cursor:pointer;transition:all 0.2s"
           onmouseover="this.style.background='rgba(167,139,250,0.1)'"
           onmouseout="this.style.background='transparent'">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M20 21H4"/></svg>
         </button>
         <button id="np-delete" onclick="deleteNowPlaying()" title="Delete"
           style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
@@ -1813,6 +1821,16 @@
         toast('Audio deleted'); await loadHistory();
       } catch (e) { toast(e.message, 'error'); }
     }
+    async function deleteAllAudio() {
+      if (!STATE.history.length) return;
+      if (!confirm(`Delete all ${STATE.history.length} audio files? They will be moved to TRASH.`)) return;
+      try {
+        const res = await api('/api/audio', { method: 'DELETE' });
+        audioEl.pause(); audioEl.src = ''; setEqActive(false);
+        hidePlayer(); STATE.nowPlaying = null;
+        toast(`${res.count} files moved to trash`); await loadHistory();
+      } catch (e) { toast(e.message, 'error'); }
+    }
 
     // ======================================================================
     // History
@@ -1823,8 +1841,9 @@
     function renderHistory() {
       const list = $('#history-list');
       const emptyHTML = `<p id="history-empty" style="text-align:center;padding:32px 0;font-size:13px;color:var(--text-faint)">No audio generated yet</p>`;
-      if (!STATE.history.length) { list.innerHTML = emptyHTML; $('#history-count').textContent = '0 files'; return; }
+      if (!STATE.history.length) { list.innerHTML = emptyHTML; $('#history-count').textContent = '0 files'; $('#delete-all-btn').style.display = 'none'; return; }
       $('#history-count').textContent = STATE.history.length + ' file' + (STATE.history.length !== 1 ? 's' : '');
+      $('#delete-all-btn').style.display = 'flex';
       list.innerHTML = STATE.history.map((h, i) => {
         const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const jsonAttr = esc(JSON.stringify(h));
