@@ -99,14 +99,15 @@
       z-index: 0;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(255, 107, 107, 0.06) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(78, 205, 196, 0.05) 0%, transparent 60%),
-        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255, 230, 109, 0.03) 0%, transparent 50%);
+        radial-gradient(ellipse 80% 60% at 15% 5%, rgba(255, 107, 107, 0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(78, 205, 196, 0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 50% at 50% 40%, rgba(255, 230, 109, 0.035) 0%, transparent 50%),
+        radial-gradient(ellipse 30% 30% at 70% 20%, rgba(78, 205, 196, 0.03) 0%, transparent 40%);
       transition: opacity 0.5s;
     }
 
     .dark body::after {
-      opacity: 0.6;
+      opacity: 0.8;
     }
 
     /* Noise grain */
@@ -149,10 +150,31 @@
       border-radius: var(--radius);
       box-shadow: var(--shadow-sm);
       transition: background 0.4s, border-color 0.4s, box-shadow 0.4s, transform 0.25s;
+      position: relative;
     }
 
     .card:hover {
       box-shadow: var(--shadow-md);
+      border-color: var(--border-hover);
+    }
+
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: calc(var(--radius) + 1px);
+      padding: 1px;
+      background: linear-gradient(135deg, rgba(255,107,107,0.15), rgba(78,205,196,0.1), rgba(255,230,109,0.08));
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+
+    .card:hover::after {
+      opacity: 1;
     }
 
     /* Inputs */
@@ -171,7 +193,7 @@
     .input-field:focus {
       outline: none;
       border-color: var(--coral);
-      box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.12);
+      box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1), 0 0 20px rgba(255, 107, 107, 0.05);
     }
 
     /* Voice chip */
@@ -201,15 +223,15 @@
     }
 
     .voice-chip[data-active="true"] {
-      background: var(--coral);
+      background: linear-gradient(135deg, #FF6B6B, #FF4747);
       color: white;
-      border-color: var(--coral);
-      box-shadow: 0 4px 14px rgba(255, 107, 107, 0.3);
+      border-color: transparent;
+      box-shadow: 0 4px 14px rgba(255, 107, 107, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
     }
 
     .voice-chip[data-active="true"]:hover {
       transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.35);
+      box-shadow: 0 6px 20px rgba(255, 107, 107, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
     }
 
     .voice-chip .gender-dot {
@@ -238,20 +260,22 @@
       color: white;
       font-weight: 700;
       font-size: 15px;
-      padding: 16px 32px;
+      letter-spacing: 0.02em;
+      padding: 17px 32px;
       border-radius: var(--radius);
       width: 100%;
-      box-shadow: 0 4px 20px rgba(255, 107, 107, 0.25);
+      box-shadow: 0 4px 20px rgba(255, 107, 107, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
     }
 
     .gen-btn:hover:not(:disabled) {
       transform: translateY(-2px) scale(1.01);
-      box-shadow: var(--shadow-glow);
+      box-shadow: 0 0 30px rgba(255, 107, 107, 0.35), 0 0 60px rgba(255, 107, 107, 0.15), 0 8px 32px rgba(255, 71, 71, 0.25);
     }
 
     .gen-btn:active:not(:disabled) {
       transform: translateY(0) scale(0.98);
+      box-shadow: 0 2px 8px rgba(255, 107, 107, 0.2);
     }
 
     .gen-btn:disabled {
@@ -265,7 +289,7 @@
       position: absolute;
       inset: 0;
       opacity: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+      background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.2) 50%, transparent 70%);
       transition: opacity 0.3s;
     }
 
@@ -348,7 +372,9 @@
       height: 100%;
       border-radius: 3px;
       transition: width 0.3s ease-out;
-      background: linear-gradient(90deg, var(--teal), #2FB8AE);
+      background: linear-gradient(90deg, var(--teal), #2FB8AE, #4ECDC4);
+      background-size: 200% 100%;
+      animation: grad-shift 3s ease infinite;
       position: relative;
     }
 
@@ -379,9 +405,10 @@
       font-size: 13.5px;
       font-weight: 500;
       color: white;
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.1);
       animation: toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      backdrop-filter: blur(12px);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
     }
 
     /* Animations */
@@ -473,7 +500,7 @@
     .hist-item {
       position: relative;
       border-radius: var(--radius-sm);
-      transition: all 0.2s;
+      transition: all 0.25s;
     }
 
     .hist-item::before {
@@ -484,9 +511,9 @@
       bottom: 8px;
       width: 3px;
       border-radius: 2px;
-      background: var(--coral);
+      background: linear-gradient(180deg, var(--coral), var(--teal));
       opacity: 0;
-      transition: opacity 0.2s;
+      transition: opacity 0.3s;
     }
 
     .hist-item:hover {
@@ -510,9 +537,20 @@
       opacity: 1 !important;
     }
 
+    #now-playing::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,107,107,0.4), rgba(78,205,196,0.3), transparent);
+      pointer-events: none;
+    }
+
     .dark #now-playing {
-      background: rgba(26, 39, 54, 0.92) !important;
-      box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+      background: rgba(15, 25, 35, 0.92) !important;
+      box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.35);
     }
 
     /* Seek track hover glow */
@@ -561,6 +599,8 @@
       color: var(--coral);
       background: rgba(255, 107, 107, 0.12);
       font-weight: 600;
+      border-bottom: 2px solid var(--coral);
+      padding-bottom: 0;
     }
 
     .karaoke-word.spoken {
@@ -622,6 +662,14 @@
     .align-btn.is-ready .align-icon {
       animation: align-pop 0.4s ease-out;
     }
+
+    /* Enhance toggle button */
+    #np-enhance { transition: all 0.3s; }
+    #np-enhance.is-active { color: var(--teal) !important; background: rgba(78,205,196,0.12) !important; border-color: rgba(78,205,196,0.3) !important; }
+    #np-enhance.is-loading svg { animation: align-pulse 1.2s ease-in-out infinite; }
+    #np-enhance.is-loading #np-enhance-label { animation: align-pulse 1.2s ease-in-out infinite; }
+    #np-enhance:disabled { opacity: 0.4; cursor: not-allowed; }
+    #np-enhance:not(:disabled):hover { border-color: var(--teal); color: var(--teal); }
   </style>
 </head>
 
@@ -677,7 +725,7 @@
         <div>
           <h1 class="font-display text-2xl tracking-tight" style="color:var(--text);line-height:1.1">KittenTTS</h1>
           <p class="text-xs font-medium tracking-widest uppercase"
-            style="color:var(--coral);letter-spacing:0.15em;margin-top:1px">Studio</p>
+            style="background:linear-gradient(90deg,var(--coral),#FF4747,var(--teal));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:0.18em;margin-top:2px">Studio</p>
         </div>
       </div>
       <button id="dark-toggle" onclick="toggleDark()"
@@ -703,26 +751,45 @@
       <!-- Left Column: Controls -->
       <div>
 
-        <!-- Model -->
+        <!-- Model + Speed -->
         <section class="card p-5 mb-4 reveal" style="animation-delay:0.06s">
-          <label class="block text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
-            style="color:var(--text-muted)">Model</label>
-          <div style="position:relative">
-            <select id="model-select" class="input-field"
-              style="width:100%;padding:12px 16px;padding-right:90px;font-size:14px;font-weight:500;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:inherit">
-              <option value="mini">Kitten TTS Mini &mdash; 80M</option>
-              <option value="micro">Kitten TTS Micro &mdash; 40M</option>
-              <option value="nano">Kitten TTS Nano &mdash; 15M</option>
-              <option value="nano-int8">Kitten TTS Nano INT8 &mdash; 15M</option>
-              <option value="nano-fp32">Kitten TTS Nano FP32 &mdash; 15M</option>
-            </select>
-            <span id="model-size" class="font-mono"
-              style="position:absolute;right:36px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:500;color:var(--teal);background:rgba(78,205,196,0.1);padding:3px 8px;border-radius:6px">80MB</span>
-            <svg
-              style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted)"
-              width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M2 5l5 5 5-5" />
-            </svg>
+          <div class="flex gap-4">
+            <div style="flex:1;min-width:0">
+              <label class="block text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
+                style="color:var(--text-muted)">Model</label>
+              <div style="position:relative">
+                <select id="model-select" class="input-field"
+                  style="width:100%;padding:12px 16px;padding-right:90px;font-size:14px;font-weight:500;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:inherit">
+                  <option value="mini">Kitten TTS Mini &mdash; 80M</option>
+                  <option value="micro">Kitten TTS Micro &mdash; 40M</option>
+                  <option value="nano">Kitten TTS Nano &mdash; 15M</option>
+                  <option value="nano-int8">Kitten TTS Nano INT8 &mdash; 15M</option>
+                  <option value="nano-fp32">Kitten TTS Nano FP32 &mdash; 15M</option>
+                </select>
+                <span id="model-size" class="font-mono"
+                  style="position:absolute;right:36px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:500;color:var(--teal);background:rgba(78,205,196,0.1);padding:3px 8px;border-radius:6px">80MB</span>
+                <svg
+                  style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted)"
+                  width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M2 5l5 5 5-5" />
+                </svg>
+              </div>
+            </div>
+            <div style="width:90px;flex-shrink:0">
+              <label class="block text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
+                style="color:var(--text-muted)">Speed</label>
+              <div style="position:relative">
+                <select id="speed-select" class="input-field"
+                  style="width:100%;padding:12px 12px;padding-right:28px;font-size:14px;font-weight:500;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;text-align:center"
+                  onchange="localStorage.setItem('kittenTTS-speed',this.value)">
+                </select>
+                <svg
+                  style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted)"
+                  width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M1.5 3.5l3.5 3.5 3.5-3.5" />
+                </svg>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -792,8 +859,8 @@
     </div><!-- /Two-column grid -->
 
     <!-- Footer -->
-    <p class="text-center mt-8 font-mono" style="font-size:11px;color:var(--text-faint)">KittenTTS Studio &middot;
-      Powered by KittenML</p>
+    <p class="text-center mt-8 font-mono" style="font-size:10px;color:var(--text-faint);letter-spacing:0.1em">KITTENTTS STUDIO &middot;
+      POWERED BY KITTENML</p>
     <!-- Spacer for fixed footer player -->
     <div id="player-spacer" style="display:none;height:90px"></div>
   </div>
@@ -854,32 +921,46 @@
 
       <!-- Actions -->
       <div class="flex items-center gap-1" style="flex-shrink:0">
+        <!-- Enhance toggle with label -->
+        <button id="np-enhance" onclick="toggleEnhance()" title="Toggle enhanced audio" disabled
+          style="height:30px;border-radius:8px;display:none;align-items:center;gap:5px;padding:0 10px;color:var(--text-muted);background:transparent;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-family:inherit;font-size:10px;white-space:nowrap">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z"/></svg>
+          <span id="np-enhance-label">Enhance</span>
+        </button>
+        <!-- Enhanced download -->
+        <a id="np-download-enhanced" href="#" download title="Download enhanced WAV (48kHz)"
+          style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:var(--teal);transition:all 0.2s;text-decoration:none"
+          onmouseover="this.style.background='rgba(78,205,196,0.08)'"
+          onmouseout="this.style.background='transparent'">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M20 21H4"/></svg>
+        </a>
+        <!-- Enhanced MP3 -->
+        <button id="np-mp3-enhanced" onclick="convertEnhancedToMp3()" title="Download enhanced as MP3"
+          style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:var(--accent);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
+          onmouseover="this.style.background='rgba(255,230,109,0.1)'"
+          onmouseout="this.style.background='transparent'">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </button>
+        <!-- Divider (shown when enhance available) -->
+        <div id="np-enhance-sep" style="display:none;width:1px;height:20px;background:var(--text-faint);opacity:0.2;margin:0 2px"></div>
+        <!-- Original actions -->
         <button id="np-mp3" onclick="convertToMp3()" title="Convert to MP3"
-          style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
+          style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
           onmouseover="this.style.color='var(--accent)';this.style.background='rgba(255,230,109,0.1)'"
           onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-            stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 18V5l12-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="18" cy="16" r="3" />
-          </svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </button>
         <a id="np-download" href="#" download title="Download WAV"
-          style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none"
+          style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none"
           onmouseover="this.style.color='var(--teal)';this.style.background='rgba(78,205,196,0.08)'"
           onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M7.5 2v8M4.5 7l3 3 3-3M2 12.5h11" />
-          </svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M20 21H4"/></svg>
         </a>
         <button id="np-delete" onclick="deleteNowPlaying()" title="Delete"
-          style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
+          style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
           onmouseover="this.style.color='var(--coral)';this.style.background='rgba(255,107,107,0.08)'"
           onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M3 5.5v8a1.5 1.5 0 001.5 1.5h6a1.5 1.5 0 001.5-1.5v-8M2 3.5h11M5.5 3.5V2h4v1.5" />
-          </svg>
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M5 6v14a2 2 0 002 2h10a2 2 0 002-2V6"/></svg>
         </button>
       </div>
     </div>
@@ -901,6 +982,7 @@
         : window.matchMedia('(prefers-color-scheme: dark)').matches,
       downloadEventSource: null, eqInterval: null, ffmpeg: false,
       alignment: null, alignmentAvailable: false, alignmentPollTimer: null, activeWordIndex: -1,
+  enhanceAvailable: false, enhancePollTimer: null, playingEnhanced: false,
     };
 
     const $ = s => document.querySelector(s);
@@ -960,6 +1042,18 @@
         STATE.models = models; STATE.voices = voices;
         STATE.ffmpeg = health.ffmpeg || false;
         STATE.alignmentAvailable = health.alignment || false;
+    STATE.enhanceAvailable = health.enhance || false;
+        // Populate speed select (0.50 to 2.00 in 0.05 steps)
+        const speedSel = $('#speed-select');
+        for (let v = 0.50; v <= 2.005; v += 0.05) {
+          const val = v.toFixed(2);
+          const opt = document.createElement('option');
+          opt.value = val; opt.textContent = val + 'x';
+          if (val === '1.00') opt.selected = true;
+          speedSel.appendChild(opt);
+        }
+        const savedSpeed = localStorage.getItem('kittenTTS-speed');
+        if (savedSpeed && speedSel.querySelector(`option[value="${savedSpeed}"]`)) speedSel.value = savedSpeed;
         $('#model-select').value = STATE.selectedModel;
         $('#model-size').textContent = MODEL_SIZES[STATE.selectedModel] || '';
         const savedPrompt = localStorage.getItem('kittenTTS-prompt');
@@ -1098,9 +1192,10 @@
       try {
         const status = await api(`/api/model-status/${STATE.selectedModel}`);
         if (!status.cached) await downloadModel(STATE.selectedModel);
+        const speed = parseFloat($('#speed-select').value) || 1.0;
         const result = await api('/api/generate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: STATE.selectedModel, voice: STATE.selectedVoice, prompt }),
+          body: JSON.stringify({ model: STATE.selectedModel, voice: STATE.selectedVoice, prompt, speed }),
         });
         toast(`Generated in ${result.inference_time}s (RTF ${result.rtf})`);
         playAudio(result);
@@ -1146,8 +1241,10 @@
       $('#player-spacer').style.display = 'none';
       setTimeout(() => { np.style.display = 'none'; }, 400);
       if (STATE.alignmentPollTimer) { clearInterval(STATE.alignmentPollTimer); STATE.alignmentPollTimer = null; }
+      if (STATE.enhancePollTimer) { clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null; }
       resetHistKaraoke();
       STATE.alignment = null; STATE.activeWordIndex = -1;
+      STATE.playingEnhanced = false; updateEnhanceBtn();
     }
     function playAudio(meta) {
       STATE.nowPlaying = meta;
@@ -1162,6 +1259,10 @@
       $('#np-download').download = meta.filename;
       updatePlayIcon();
       activateHistKaraoke(meta.filename);
+      // Enhancement toggle
+      STATE.playingEnhanced = false;
+      updateEnhanceBtn();
+      if (STATE.enhanceAvailable) pollEnhanceStatus(meta.filename);
     }
     function togglePlayback() { if (audioEl.paused) audioEl.play(); else audioEl.pause(); updatePlayIcon(); }
     function updatePlayIcon() {
@@ -1337,6 +1438,123 @@
       if (!STATE.alignmentAvailable) { toast('Alignment not available', 'error'); return; }
       _setAlignBtnState(filename, 'loading');
       fetchAlignment(filename);
+    }
+
+    // ======================================================================
+    // Audio Enhancement (LavaSR) — original/enhanced toggle
+    // ======================================================================
+    function _showEnhanceGroup(show) {
+      const d = show ? 'flex' : 'none';
+      $('#np-enhance').style.display = d;
+      $('#np-enhance-sep').style.display = show ? 'block' : 'none';
+      // Download/MP3 buttons only visible when enhanced is ready
+      if (!show) {
+        $('#np-download-enhanced').style.display = 'none';
+        $('#np-mp3-enhanced').style.display = 'none';
+      }
+    }
+    function _showEnhanceActions(ready) {
+      const d = ready ? 'flex' : 'none';
+      $('#np-download-enhanced').style.display = d;
+      $('#np-mp3-enhanced').style.display = d;
+      if (ready && STATE.nowPlaying && STATE.nowPlaying._enhancedFilename) {
+        $('#np-download-enhanced').href = `/audio/${STATE.nowPlaying._enhancedFilename}`;
+        $('#np-download-enhanced').download = STATE.nowPlaying._enhancedFilename;
+      }
+    }
+    function updateEnhanceBtn() {
+      const btn = $('#np-enhance');
+      const label = $('#np-enhance-label');
+      if (!STATE.enhanceAvailable) { _showEnhanceGroup(false); return; }
+      _showEnhanceGroup(true);
+      btn.classList.toggle('is-active', STATE.playingEnhanced);
+      if (btn.disabled) {
+        label.textContent = 'Enhancing...';
+        btn.title = 'Audio is being enhanced — please wait';
+        _showEnhanceActions(false);
+      } else if (STATE.playingEnhanced) {
+        label.textContent = 'Enhanced';
+        btn.title = 'Playing enhanced 48kHz — click to switch to original';
+        _showEnhanceActions(true);
+      } else {
+        label.textContent = 'Original';
+        btn.title = 'Playing original 24kHz — click to switch to enhanced';
+        _showEnhanceActions(true);
+      }
+    }
+    function pollEnhanceStatus(filename) {
+      if (STATE.enhancePollTimer) { clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null; }
+      const btn = $('#np-enhance');
+      async function poll() {
+        try {
+          const data = await api(`/api/audio/${filename}/enhance-status`);
+          if (data.status === 'ready' && data.enhanced_filename) {
+            clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
+            if (STATE.nowPlaying) STATE.nowPlaying._enhancedFilename = data.enhanced_filename;
+            btn.disabled = false;
+            btn.classList.remove('is-loading');
+            updateEnhanceBtn();
+            toast('Enhanced audio ready');
+          } else if (data.status === 'unavailable') {
+            clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
+            _showEnhanceGroup(false);
+          } else {
+            btn.disabled = true;
+            btn.classList.add('is-loading');
+            updateEnhanceBtn();
+          }
+        } catch (e) { console.error('[enhance] poll error:', e); }
+      }
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      _showEnhanceGroup(true);
+      updateEnhanceBtn();
+      poll();
+      STATE.enhancePollTimer = setInterval(poll, 1500);
+    }
+    function toggleEnhance() {
+      if (!STATE.nowPlaying || !STATE.nowPlaying._enhancedFilename) return;
+      const wasPlaying = !audioEl.paused;
+      const pos = audioEl.currentTime;
+      STATE.playingEnhanced = !STATE.playingEnhanced;
+      if (STATE.playingEnhanced) {
+        audioEl.src = `/audio/${STATE.nowPlaying._enhancedFilename}`;
+      } else {
+        audioEl.src = `/audio/${STATE.nowPlaying.filename}`;
+      }
+      audioEl.currentTime = pos;
+      if (wasPlaying) audioEl.play();
+      updateEnhanceBtn();
+    }
+    function convertEnhancedToMp3() {
+      if (!STATE.nowPlaying || !STATE.nowPlaying._enhancedFilename) return;
+      const enhancedFilename = STATE.nowPlaying._enhancedFilename;
+      const btn = $('#np-mp3-enhanced');
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      const es = new EventSource(`/api/audio/${enhancedFilename}/mp3-convert`);
+      function resetBtn() { btn.innerHTML = originalHTML; btn.disabled = false; }
+      es.onmessage = async (ev) => {
+        const d = JSON.parse(ev.data);
+        if (d.phase === 'converting') {
+          btn.innerHTML = `<span class="font-mono" style="font-size:9px;color:var(--accent)">${d.progress}%</span>`;
+        } else if (d.phase === 'done') {
+          es.close();
+          btn.innerHTML = `<span class="font-mono" style="font-size:9px;color:var(--teal)">100%</span>`;
+          try {
+            const res = await fetch(`/api/audio/${enhancedFilename}/mp3`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = enhancedFilename.replace('.wav', '.mp3');
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            toast('Enhanced MP3 downloaded');
+          } catch (e) { toast('Download failed', 'error'); }
+          resetBtn();
+        } else if (d.phase === 'error') { es.close(); resetBtn(); toast(d.message || 'Conversion failed', 'error'); }
+      };
+      es.onerror = () => { es.close(); resetBtn(); toast('Conversion failed', 'error'); };
     }
 
     function convertToMp3() {

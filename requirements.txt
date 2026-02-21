@@ -3,3 +3,4 @@ flask
 flask-cors
 openai-whisper
 stable-ts
+git+https://github.com/ysharma3501/LavaSR.git

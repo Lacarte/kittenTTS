@@ -74,6 +74,13 @@ alignment_available = None  # None = not checked yet, True/False after first che
 alignment_tasks = {}        # {basename: threading.Thread}
 alignment_tasks_lock = threading.Lock()
 
+# Enhancement model (LavaSR) — optional feature
+enhance_model = None
+enhance_lock = threading.Lock()
+enhance_available = None  # None = not checked yet, True/False after first check
+enhance_tasks = {}        # {basename: threading.Thread}
+enhance_tasks_lock = threading.Lock()
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -194,7 +201,7 @@ def index():
 # --- Health ---
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available()})
+    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available(), "enhance": _check_enhance_available()})
 
 
 # --- Models ---
@@ -319,6 +326,8 @@ def generate():
     model_id = data.get("model", "mini")
     voice = data.get("voice", "Jasper")
     prompt = data.get("prompt", "")
+    speed = float(data.get("speed", 1.0))
+    speed = max(0.5, min(2.0, speed))  # clamp to 0.5–2.0
 
     if not prompt.strip():
         return jsonify({"error": "Prompt is required"}), 400
@@ -333,7 +342,11 @@ def generate():
     approx_tokens = int(words * 1.3)
 
     start = time.perf_counter()
-    audio = m.generate(prompt, voice=voice)
+    try:
+        audio = m.generate(prompt, voice=voice, speed=speed)
+    except Exception as e:
+        print(f"[generate] TTS inference failed: {e}")
+        return jsonify({"error": f"Generation failed: {e}"}), 500
     end = time.perf_counter()
 
     duration_generated = len(audio) / 24000
@@ -357,15 +370,18 @@ def generate():
         "rtf": round(rtf, 4),
         "duration_seconds": round(duration_generated, 2),
         "sample_rate": 24000,
+        "speed": speed,
         "words": words,
         "approx_tokens": approx_tokens,
     }
     with open(os.path.join(AUDIO_DIR, json_name), "w") as f:
         json.dump(metadata, f, indent=2)
 
-    # Kick off background alignment
+    # Kick off background alignment and enhancement
     _start_alignment(basename)
     metadata["alignment_status"] = "pending" if _check_alignment_available() else "unavailable"
+    _start_enhancement(basename)
+    metadata["enhance_status"] = "pending" if _check_enhance_available() else "unavailable"
 
     return jsonify(metadata)
 
@@ -440,6 +456,53 @@ def get_alignment(filename):
     # No alignment attempted yet (old file) — trigger retroactive alignment
     _start_alignment(basename)
     return jsonify({"status": "aligning"})
+
+
+# --- Audio enhancement status ---
+@app.route("/api/audio/<filename>/enhance-status")
+def get_enhance_status(filename):
+    """Return enhancement status, triggering retroactive enhancement for old files."""
+    if not filename.endswith(".wav"):
+        return jsonify({"error": "Expected .wav filename"}), 400
+
+    basename = filename.rsplit(".", 1)[0]
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+
+    if not os.path.exists(json_path):
+        return jsonify({"error": "Metadata not found"}), 404
+
+    if not _check_enhance_available():
+        return jsonify({"status": "unavailable"})
+
+    with open(json_path, "r") as f:
+        metadata = json.load(f)
+
+    status = metadata.get("enhance_status")
+
+    if status == "ready" and metadata.get("enhanced_filename"):
+        enhanced_path = os.path.join(AUDIO_DIR, metadata["enhanced_filename"])
+        if os.path.exists(enhanced_path):
+            return jsonify({
+                "status": "ready",
+                "enhanced_filename": metadata["enhanced_filename"],
+            })
+        # File missing — re-enhance
+        _start_enhancement(basename)
+        return jsonify({"status": "enhancing"})
+
+    if status == "failed":
+        _start_enhancement(basename)
+        return jsonify({"status": "enhancing"})
+
+    if status == "enhancing":
+        with enhance_tasks_lock:
+            if basename not in enhance_tasks:
+                _start_enhancement(basename)
+        return jsonify({"status": "enhancing"})
+
+    # No enhancement attempted yet (old file) — trigger retroactive
+    _start_enhancement(basename)
+    return jsonify({"status": "enhancing"})
 
 
 # --- Locate ffmpeg helper ---
@@ -579,6 +642,103 @@ def _start_alignment(basename):
             return
         t = threading.Thread(target=_background_align, args=(basename,), daemon=True)
         alignment_tasks[basename] = t
+        t.start()
+
+
+# --- Enhancement helpers (LavaSR) ---
+
+def _check_enhance_available():
+    """Check if LavaSR is importable. Cached after first call."""
+    global enhance_available
+    if enhance_available is not None:
+        return enhance_available
+    try:
+        from LavaSR.model import LavaEnhance  # noqa: F401
+        enhance_available = True
+    except ImportError:
+        enhance_available = False
+    return enhance_available
+
+
+def _load_enhance_model():
+    """Load (or return cached) LavaSR enhancement model."""
+    global enhance_model
+    if enhance_model is not None:
+        return enhance_model
+    from LavaSR.model import LavaEnhance
+    with enhance_lock:
+        if enhance_model is None:
+            enhance_model = LavaEnhance("YatharthS/LavaSR", "cpu")
+    return enhance_model
+
+
+def _run_enhance(wav_path):
+    """Enhance audio file. Returns enhanced filename or None."""
+    try:
+        model = _load_enhance_model()
+        audio, sr = model.load_audio(wav_path)
+        enhanced = model.enhance(audio)
+        enhanced_np = enhanced.cpu().numpy().squeeze()
+
+        basename = os.path.splitext(os.path.basename(wav_path))[0]
+        enhanced_name = f"{basename}_enhanced.wav"
+        enhanced_path = os.path.join(AUDIO_DIR, enhanced_name)
+        sf.write(enhanced_path, enhanced_np, 48000)
+        return enhanced_name
+    except Exception as e:
+        print(f"[enhance] Error enhancing {wav_path}: {e}")
+        return None
+
+
+def _background_enhance(basename):
+    """Run enhancement in background thread, update metadata JSON when done."""
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+    wav_path = os.path.join(AUDIO_DIR, basename + ".wav")
+
+    if not os.path.exists(json_path) or not os.path.exists(wav_path):
+        return
+
+    try:
+        with open(json_path, "r") as f:
+            metadata = json.load(f)
+
+        # Skip if already enhanced and file exists
+        if (metadata.get("enhance_status") == "ready"
+                and metadata.get("enhanced_filename")
+                and os.path.exists(os.path.join(AUDIO_DIR, metadata["enhanced_filename"]))):
+            return
+
+        metadata["enhance_status"] = "enhancing"
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        enhanced_name = _run_enhance(wav_path)
+
+        if enhanced_name:
+            metadata["enhance_status"] = "ready"
+            metadata["enhanced_filename"] = enhanced_name
+        else:
+            metadata["enhance_status"] = "failed"
+
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+    except Exception as e:
+        print(f"[enhance] Background enhance failed for {basename}: {e}")
+    finally:
+        with enhance_tasks_lock:
+            enhance_tasks.pop(basename, None)
+
+
+def _start_enhancement(basename):
+    """Spawn enhancement thread if not already running for this file."""
+    if not _check_enhance_available():
+        return
+    with enhance_tasks_lock:
+        if basename in enhance_tasks:
+            return
+        t = threading.Thread(target=_background_enhance, args=(basename,), daemon=True)
+        enhance_tasks[basename] = t
         t.start()
 
 
