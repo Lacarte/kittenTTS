@@ -110,6 +110,164 @@ def clean_for_tts(text: str) -> str:
     return text.strip()
 
 
+# ---------------------------------------------------------------------------
+# TTS Text Normalization
+# ---------------------------------------------------------------------------
+
+_CONTRACTIONS = {
+    "you'd": "you would", "you'll": "you will", "you're": "you are", "you've": "you have",
+    "I'd": "I would", "I'll": "I will", "I'm": "I am", "I've": "I have",
+    "he'd": "he would", "he'll": "he will", "he's": "he is",
+    "she'd": "she would", "she'll": "she will", "she's": "she is",
+    "it'd": "it would", "it'll": "it will", "it's": "it is",
+    "we'd": "we would", "we'll": "we will", "we're": "we are", "we've": "we have",
+    "they'd": "they would", "they'll": "they will", "they're": "they are", "they've": "they have",
+    "that's": "that is", "that'd": "that would", "that'll": "that will",
+    "who's": "who is", "who'd": "who would", "who'll": "who will",
+    "what's": "what is", "what'd": "what did", "what'll": "what will",
+    "where's": "where is", "when's": "when is", "why's": "why is", "how's": "how is",
+    "isn't": "is not", "aren't": "are not", "wasn't": "was not", "weren't": "were not",
+    "won't": "will not", "wouldn't": "would not", "don't": "do not", "doesn't": "does not",
+    "didn't": "did not", "can't": "cannot", "couldn't": "could not", "shouldn't": "should not",
+    "haven't": "have not", "hasn't": "has not", "hadn't": "had not",
+    "mustn't": "must not", "mightn't": "might not", "needn't": "need not",
+    "let's": "let us", "there's": "there is", "here's": "here is", "o'clock": "of the clock",
+}
+
+_ORDINALS = {
+    r'\b1st\b': 'first', r'\b2nd\b': 'second', r'\b3rd\b': 'third',
+    r'\b4th\b': 'fourth', r'\b5th\b': 'fifth', r'\b6th\b': 'sixth',
+    r'\b7th\b': 'seventh', r'\b8th\b': 'eighth', r'\b9th\b': 'ninth',
+    r'\b10th\b': 'tenth', r'\b11th\b': 'eleventh', r'\b12th\b': 'twelfth',
+    r'\b13th\b': 'thirteenth', r'\b14th\b': 'fourteenth', r'\b15th\b': 'fifteenth',
+    r'\b20th\b': 'twentieth', r'\b21st\b': 'twenty first', r'\b22nd\b': 'twenty second',
+    r'\b23rd\b': 'twenty third', r'\b30th\b': 'thirtieth', r'\b31st\b': 'thirty first',
+    r'\b1rst\b': 'first',
+}
+
+_ABBREVIATIONS = {
+    r'\bDr\.\b': 'Doctor', r'\bMr\.\b': 'Mister', r'\bMrs\.\b': 'Missus', r'\bMs\.\b': 'Miss',
+    r'\bProf\.\b': 'Professor', r'\bSt\.\b': 'Saint', r'\bAve\.\b': 'Avenue',
+    r'\bBlvd\.\b': 'Boulevard', r'\bDept\.\b': 'Department', r'\bEst\.\b': 'Estimated',
+    r'\betc\.\b': 'et cetera', r'\be\.g\.\b': 'for example', r'\bi\.e\.\b': 'that is',
+    r'\bvs\.\b': 'versus', r'\bapprox\.\b': 'approximately',
+    r'\bmin\.\b': 'minutes', r'\bmax\.\b': 'maximum', r'\bno\.\b': 'number',
+    r'\bAPI\b': 'A P I', r'\bURL\b': 'U R L', r'\bHTTP\b': 'H T T P',
+    r'\bHTML\b': 'H T M L', r'\bCSS\b': 'C S S', r'\bSQL\b': 'S Q L',
+    r'\bRBQ\b': 'R B Q', r'\bID\b': 'I D', r'\bPIN\b': 'pin',
+    r'\bOTP\b': 'O T P', r'\bSMS\b': 'S M S', r'\bPDF\b': 'P D F',
+}
+
+_UNITS = {
+    r'(\d+)\s?km\b': r'\1 kilometers', r'(\d+)\s?m\b': r'\1 meters',
+    r'(\d+)\s?cm\b': r'\1 centimeters', r'(\d+)\s?mm\b': r'\1 millimeters',
+    r'(\d+)\s?kg\b': r'\1 kilograms', r'(\d+)\s?g\b': r'\1 grams',
+    r'(\d+)\s?mg\b': r'\1 milligrams', r'(\d+)\s?lb\b': r'\1 pounds',
+    r'(\d+)\s?oz\b': r'\1 ounces', r'(\d+)\s?mph\b': r'\1 miles per hour',
+    r'(\d+)\s?kph\b': r'\1 kilometers per hour',
+    r'(\d+)\s?°C\b': r'\1 degrees Celsius', r'(\d+)\s?°F\b': r'\1 degrees Fahrenheit',
+    r'(\d+)\s?%': r'\1 percent',
+    r'(\d+)\s?MB\b': r'\1 megabytes', r'(\d+)\s?GB\b': r'\1 gigabytes',
+    r'(\d+)\s?TB\b': r'\1 terabytes', r'(\d+)\s?ms\b': r'\1 milliseconds',
+    r'(\d+)\s?fps\b': r'\1 frames per second',
+}
+
+_SYMBOLS = {
+    '&': 'and', '@': 'at', '#': 'number', '+': 'plus', '=': 'equals',
+    '>': 'greater than', '<': 'less than', '~': 'approximately',
+    '|': '', '\\': '', '/': ' or ',
+    '\u2013': '-', '\u2014': ',', '\u2026': '...',
+    '\u201c': '"', '\u201d': '"', '\u2018': "'", '\u2019': "'",
+}
+
+_DATE_MONTHS = {
+    '01': 'January', '02': 'February', '03': 'March', '04': 'April',
+    '05': 'May', '06': 'June', '07': 'July', '08': 'August',
+    '09': 'September', '10': 'October', '11': 'November', '12': 'December',
+}
+
+
+def _expand_symbols(text):
+    for sym, rep in _SYMBOLS.items():
+        text = text.replace(sym, rep)
+    return text
+
+def _expand_contractions(text):
+    for c, e in _CONTRACTIONS.items():
+        text = re.sub(re.escape(c), e, text, flags=re.IGNORECASE)
+    return text
+
+def _expand_abbreviations(text):
+    for p, r in _ABBREVIATIONS.items():
+        text = re.sub(p, r, text, flags=re.IGNORECASE)
+    return text
+
+def _expand_currency(text):
+    text = re.sub(r'\$(\d+)', r'\1 dollars', text)
+    text = re.sub(r'€(\d+)', r'\1 euros', text)
+    text = re.sub(r'£(\d+)', r'\1 pounds', text)
+    text = re.sub(r'¥(\d+)', r'\1 yen', text)
+    text = re.sub(r'HTG\s?(\d+)', r'\1 Haitian gourdes', text)
+    return text
+
+def _expand_units(text):
+    for p, r in _UNITS.items():
+        text = re.sub(p, r, text, flags=re.IGNORECASE)
+    return text
+
+def _expand_dates(text):
+    def _replace(m):
+        y, mo, d = m.group(1), m.group(2), m.group(3)
+        return f"{_DATE_MONTHS.get(mo, mo)} {int(d)}, {y}"
+    return re.sub(r'\b(\d{4})-(\d{2})-(\d{2})\b', _replace, text)
+
+def _expand_time(text):
+    text = re.sub(
+        r'\b(\d{1,2}):(\d{2})\s?(am|pm)\b',
+        lambda m: f"{m.group(1)} {m.group(2)} {m.group(3).replace('am','a m').replace('pm','p m')}",
+        text, flags=re.IGNORECASE)
+    text = re.sub(
+        r'\b(\d{1,2})\s?(am|pm)\b',
+        lambda m: f"{m.group(1)} {m.group(2).replace('am','a m').replace('pm','p m')}",
+        text, flags=re.IGNORECASE)
+    return text
+
+def _expand_ordinals(text):
+    for p, r in _ORDINALS.items():
+        text = re.sub(p, r, text, flags=re.IGNORECASE)
+    return text
+
+def _expand_numbers(text):
+    try:
+        from num2words import num2words
+        # Floats first (3.14 -> three point one four)
+        def _float_repl(m):
+            whole = num2words(int(m.group(1)))
+            decimals = " ".join(num2words(int(d)) for d in m.group(2))
+            return f"{whole} point {decimals}"
+        text = re.sub(r'\b(\d+)\.(\d+)\b', _float_repl, text)
+        # Integers (42 -> forty-two)
+        text = re.sub(r'\b(\d+)\b', lambda m: num2words(int(m.group(1))), text)
+    except ImportError:
+        pass  # num2words not installed — skip number expansion
+    return text
+
+
+def normalize_for_tts(text: str) -> str:
+    """Full TTS normalization pipeline. Order matters."""
+    text = _expand_symbols(text)
+    text = _expand_contractions(text)
+    text = _expand_abbreviations(text)
+    text = _expand_currency(text)
+    text = _expand_units(text)
+    text = _expand_dates(text)
+    text = _expand_time(text)
+    text = _expand_ordinals(text)
+    text = _expand_numbers(text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
 def find_available_port(start: int = 5000) -> int:
     port = start
     while port < 65535:
@@ -220,6 +378,17 @@ def index():
 @app.route("/api/health")
 def health():
     return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available(), "enhance": _check_enhance_available(), "vad": _check_vad_available()})
+
+
+# --- Normalize text ---
+@app.route("/api/normalize", methods=["POST"])
+def normalize_text():
+    data = request.get_json(force=True)
+    text = data.get("text", "")
+    if not text.strip():
+        return jsonify({"error": "No text provided"}), 400
+    normalized = normalize_for_tts(text)
+    return jsonify({"original": text, "normalized": normalized})
 
 
 # --- Models ---
@@ -578,6 +747,9 @@ def get_vad_status(filename):
         _start_vad(basename)
         return jsonify({"status": "cleaning"})
 
+    if status == "normalizing":
+        return jsonify({"status": "normalizing"})
+
     if status == "cleaning":
         with vad_tasks_lock:
             if basename not in vad_tasks:
@@ -933,8 +1105,40 @@ def _run_silence_removal(wav_path, max_silence_ms=500):
         return None
 
 
+def _run_loudnorm(wav_path):
+    """Normalize audio volume using ffmpeg loudnorm. Overwrites the file in-place."""
+    ffmpeg = _find_ffmpeg()
+    if not ffmpeg:
+        return False
+    tmp_path = wav_path + ".tmp.wav"
+    try:
+        result = subprocess.run(
+            [ffmpeg, "-nostdin", "-y", "-i", wav_path, "-af", "loudnorm", tmp_path],
+            capture_output=True, timeout=30,
+        )
+        if result.returncode == 0 and os.path.exists(tmp_path):
+            os.replace(tmp_path, wav_path)
+            return True
+        else:
+            print(f"[loudnorm] ffmpeg failed: {result.stderr.decode(errors='replace')[:300]}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"[loudnorm] Timed out normalizing {wav_path}")
+        return False
+    except Exception as e:
+        print(f"[loudnorm] Error normalizing {wav_path}: {e}")
+        return False
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+
 def _background_vad(basename, max_silence_ms=500):
-    """Run silence removal in background thread, update metadata JSON when done."""
+    """Run silence removal in background thread, update metadata JSON when done.
+    Also runs loudnorm on the cleaned file if ffmpeg is available."""
     json_path = os.path.join(AUDIO_DIR, basename + ".json")
     # Prefer enhanced audio if available, otherwise use original
     with open(json_path, "r") as f:
@@ -966,6 +1170,17 @@ def _background_vad(basename, max_silence_ms=500):
         cleaned_name = _run_silence_removal(wav_path, max_silence_ms=max_silence_ms)
 
         if cleaned_name:
+            # Run loudnorm on the cleaned file
+            metadata["vad_status"] = "normalizing"
+            with open(json_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            cleaned_path = os.path.join(AUDIO_DIR, cleaned_name)
+            if _run_loudnorm(cleaned_path):
+                print(f"[loudnorm] Normalized {cleaned_name}")
+            else:
+                print(f"[loudnorm] Skipped (ffmpeg unavailable or failed) for {cleaned_name}")
+
             metadata["vad_status"] = "ready"
             metadata["cleaned_filename"] = cleaned_name
         else:
@@ -976,6 +1191,15 @@ def _background_vad(basename, max_silence_ms=500):
 
     except Exception as e:
         print(f"[vad] Background silence removal failed for {basename}: {e}")
+        # Always finalize metadata so status doesn't stay stuck
+        try:
+            with open(json_path, "r") as f:
+                metadata = json.load(f)
+            metadata["vad_status"] = "failed"
+            with open(json_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+        except Exception:
+            pass
     finally:
         with vad_tasks_lock:
             vad_tasks.pop(basename, None)
