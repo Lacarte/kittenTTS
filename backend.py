@@ -81,6 +81,14 @@ enhance_available = None  # None = not checked yet, True/False after first check
 enhance_tasks = {}        # {basename: threading.Thread}
 enhance_tasks_lock = threading.Lock()
 
+# Silence removal model (Silero VAD) — optional feature
+vad_model = None
+vad_utils = None
+vad_lock = threading.Lock()
+vad_available = None  # None = not checked yet, True/False after first check
+vad_tasks = {}        # {basename: threading.Thread}
+vad_tasks_lock = threading.Lock()
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -90,6 +98,14 @@ def generate_filename(prompt: str) -> str:
     excerpt = re.sub(r"[^a-zA-Z0-9]+", "-", prompt[:30].lower()).strip("-")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{excerpt}_{timestamp}"
+
+
+def clean_for_tts(text: str) -> str:
+    """Strip markdown formatting, URLs, and excess whitespace before TTS."""
+    text = re.sub(r"[*_#`~]", "", text)       # markdown chars
+    text = re.sub(r"https?://\S+", "link", text)  # URLs
+    text = re.sub(r"\s+", " ", text)           # collapse whitespace
+    return text.strip()
 
 
 def find_available_port(start: int = 5000) -> int:
@@ -201,7 +217,7 @@ def index():
 # --- Health ---
 @app.route("/api/health")
 def health():
-    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available(), "enhance": _check_enhance_available()})
+    return jsonify({"status": "ok", "port": request.host.split(":")[-1], "ffmpeg": _find_ffmpeg() is not None, "alignment": _check_alignment_available(), "enhance": _check_enhance_available(), "vad": _check_vad_available()})
 
 
 # --- Models ---
@@ -328,6 +344,8 @@ def generate():
     prompt = data.get("prompt", "")
     speed = float(data.get("speed", 1.0))
     speed = max(0.5, min(2.0, speed))  # clamp to 0.5–2.0
+    max_silence_ms = int(data.get("max_silence_ms", 500))
+    max_silence_ms = max(200, min(1000, max_silence_ms))  # clamp to 200–1000
 
     if not prompt.strip():
         return jsonify({"error": "Prompt is required"}), 400
@@ -338,12 +356,13 @@ def generate():
 
     m = load_model(model_id)
 
-    words = len(prompt.split())
+    tts_prompt = clean_for_tts(prompt)
+    words = len(tts_prompt.split())
     approx_tokens = int(words * 1.3)
 
     start = time.perf_counter()
     try:
-        audio = m.generate(prompt, voice=voice, speed=speed)
+        audio = m.generate(tts_prompt, voice=voice, speed=speed)
     except Exception as e:
         print(f"[generate] TTS inference failed: {e}")
         return jsonify({"error": f"Generation failed: {e}"}), 500
@@ -371,6 +390,7 @@ def generate():
         "duration_seconds": round(duration_generated, 2),
         "sample_rate": 24000,
         "speed": speed,
+        "max_silence_ms": max_silence_ms,
         "words": words,
         "approx_tokens": approx_tokens,
     }
@@ -382,6 +402,10 @@ def generate():
     metadata["alignment_status"] = "pending" if _check_alignment_available() else "unavailable"
     _start_enhancement(basename)
     metadata["enhance_status"] = "pending" if _check_enhance_available() else "unavailable"
+    # VAD is chained from enhancement; if enhance unavailable, start VAD directly
+    if not _check_enhance_available():
+        _start_vad(basename, max_silence_ms)
+    metadata["vad_status"] = "pending" if _check_vad_available() else "unavailable"
 
     return jsonify(metadata)
 
@@ -503,6 +527,52 @@ def get_enhance_status(filename):
     # No enhancement attempted yet (old file) — trigger retroactive
     _start_enhancement(basename)
     return jsonify({"status": "enhancing"})
+
+
+# --- Silence removal (VAD) status ---
+@app.route("/api/audio/<filename>/vad-status")
+def get_vad_status(filename):
+    """Return silence removal status, triggering retroactive cleaning for old files."""
+    if not filename.endswith(".wav"):
+        return jsonify({"error": "Expected .wav filename"}), 400
+
+    basename = filename.rsplit(".", 1)[0]
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+
+    if not os.path.exists(json_path):
+        return jsonify({"error": "Metadata not found"}), 404
+
+    if not _check_vad_available():
+        return jsonify({"status": "unavailable"})
+
+    with open(json_path, "r") as f:
+        metadata = json.load(f)
+
+    status = metadata.get("vad_status")
+
+    if status == "ready" and metadata.get("cleaned_filename"):
+        cleaned_path = os.path.join(AUDIO_DIR, metadata["cleaned_filename"])
+        if os.path.exists(cleaned_path):
+            return jsonify({
+                "status": "ready",
+                "cleaned_filename": metadata["cleaned_filename"],
+            })
+        _start_vad(basename)
+        return jsonify({"status": "cleaning"})
+
+    if status == "failed":
+        _start_vad(basename)
+        return jsonify({"status": "cleaning"})
+
+    if status == "cleaning":
+        with vad_tasks_lock:
+            if basename not in vad_tasks:
+                _start_vad(basename)
+        return jsonify({"status": "cleaning"})
+
+    # No VAD attempted yet — trigger retroactive
+    _start_vad(basename)
+    return jsonify({"status": "cleaning"})
 
 
 # --- Locate ffmpeg helper ---
@@ -691,7 +761,8 @@ def _run_enhance(wav_path):
 
 
 def _background_enhance(basename):
-    """Run enhancement in background thread, update metadata JSON when done."""
+    """Run enhancement in background thread, update metadata JSON when done.
+    Automatically chains into silence removal (VAD) when enhancement completes."""
     json_path = os.path.join(AUDIO_DIR, basename + ".json")
     wav_path = os.path.join(AUDIO_DIR, basename + ".wav")
 
@@ -706,6 +777,9 @@ def _background_enhance(basename):
         if (metadata.get("enhance_status") == "ready"
                 and metadata.get("enhanced_filename")
                 and os.path.exists(os.path.join(AUDIO_DIR, metadata["enhanced_filename"]))):
+            # Still chain VAD if not done yet
+            if metadata.get("vad_status") not in ("ready", "cleaning"):
+                _start_vad(basename)
             return
 
         metadata["enhance_status"] = "enhancing"
@@ -723,8 +797,13 @@ def _background_enhance(basename):
         with open(json_path, "w") as f:
             json.dump(metadata, f, indent=2)
 
+        # Chain: start silence removal after enhancement completes
+        _start_vad(basename)
+
     except Exception as e:
         print(f"[enhance] Background enhance failed for {basename}: {e}")
+        # Still try VAD even if enhancement failed
+        _start_vad(basename)
     finally:
         with enhance_tasks_lock:
             enhance_tasks.pop(basename, None)
@@ -739,6 +818,164 @@ def _start_enhancement(basename):
             return
         t = threading.Thread(target=_background_enhance, args=(basename,), daemon=True)
         enhance_tasks[basename] = t
+        t.start()
+
+
+# --- Silence removal helpers (Silero VAD) ---
+
+def _check_vad_available():
+    """Check if torch is importable (Silero VAD needs it). Cached after first call."""
+    global vad_available
+    if vad_available is not None:
+        return vad_available
+    try:
+        import torch  # noqa: F401
+        vad_available = True
+    except ImportError:
+        vad_available = False
+    return vad_available
+
+
+def _load_vad_model():
+    """Load (or return cached) Silero VAD model."""
+    global vad_model, vad_utils
+    if vad_model is not None:
+        return vad_model, vad_utils
+    import torch
+    with vad_lock:
+        if vad_model is None:
+            model, utils = torch.hub.load("snakers4/silero-vad", "silero_vad")
+            vad_model = model
+            vad_utils = utils
+    return vad_model, vad_utils
+
+
+def _run_silence_removal(wav_path, max_silence_ms=500):
+    """Remove silences longer than max_silence_ms using Silero VAD.
+    Short pauses (<= threshold) are kept intact for natural speech."""
+    try:
+        import torch
+        model, utils = _load_vad_model()
+        get_speech_timestamps = utils[0]
+
+        # Read audio with soundfile and resample to 16kHz (avoids torchaudio dependency)
+        audio_np, sr = sf.read(wav_path, dtype="float32")
+        if audio_np.ndim > 1:
+            audio_np = audio_np.mean(axis=1)
+        orig_audio = audio_np.copy()
+        orig_sr = sr
+        if sr != 16000:
+            target_len = int(len(audio_np) * 16000 / sr)
+            audio_np = np.interp(
+                np.linspace(0, len(audio_np), target_len, endpoint=False),
+                np.arange(len(audio_np)),
+                audio_np,
+            ).astype(np.float32)
+        wav_16k = torch.from_numpy(audio_np)
+        timestamps = get_speech_timestamps(
+            wav_16k, model,
+            sampling_rate=16000,
+            threshold=0.5,
+            min_speech_duration_ms=250,
+            min_silence_duration_ms=100,
+        )
+
+        if not timestamps:
+            return None
+
+        # Map 16kHz sample indices to original sample rate
+        ratio = orig_sr / 16000
+
+        # Merge segments, keeping silences <= max_silence_ms intact
+        chunks = []
+        for i, seg in enumerate(timestamps):
+            start = int(seg["start"] * ratio)
+            end = int(seg["end"] * ratio)
+
+            if i > 0:
+                prev_end = int(timestamps[i - 1]["end"] * ratio)
+                gap_ms = ((start - prev_end) / orig_sr) * 1000
+
+                if gap_ms <= max_silence_ms:
+                    # Keep the silence — include gap + speech
+                    chunks.append(orig_audio[prev_end:end])
+                else:
+                    # Drop the long silence, just add speech segment
+                    chunks.append(orig_audio[start:end])
+            else:
+                chunks.append(orig_audio[start:end])
+
+        if not chunks:
+            return None
+
+        cleaned = np.concatenate(chunks)
+        basename = os.path.splitext(os.path.basename(wav_path))[0]
+        cleaned_name = f"{basename}_cleaned.wav"
+        cleaned_path = os.path.join(AUDIO_DIR, cleaned_name)
+        sf.write(cleaned_path, cleaned, orig_sr)
+        return cleaned_name
+    except Exception as e:
+        print(f"[vad] Error removing silence from {wav_path}: {e}")
+        return None
+
+
+def _background_vad(basename, max_silence_ms=500):
+    """Run silence removal in background thread, update metadata JSON when done."""
+    json_path = os.path.join(AUDIO_DIR, basename + ".json")
+    # Prefer enhanced audio if available, otherwise use original
+    with open(json_path, "r") as f:
+        metadata = json.load(f)
+
+    enhanced_name = metadata.get("enhanced_filename")
+    if enhanced_name and os.path.exists(os.path.join(AUDIO_DIR, enhanced_name)):
+        wav_path = os.path.join(AUDIO_DIR, enhanced_name)
+    else:
+        wav_path = os.path.join(AUDIO_DIR, basename + ".wav")
+
+    if not os.path.exists(json_path) or not os.path.exists(wav_path):
+        return
+
+    # Read max_silence_ms from metadata if stored (from generate request)
+    max_silence_ms = metadata.get("max_silence_ms", max_silence_ms)
+
+    try:
+        # Skip if already cleaned and file exists
+        if (metadata.get("vad_status") == "ready"
+                and metadata.get("cleaned_filename")
+                and os.path.exists(os.path.join(AUDIO_DIR, metadata["cleaned_filename"]))):
+            return
+
+        metadata["vad_status"] = "cleaning"
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+        cleaned_name = _run_silence_removal(wav_path, max_silence_ms=max_silence_ms)
+
+        if cleaned_name:
+            metadata["vad_status"] = "ready"
+            metadata["cleaned_filename"] = cleaned_name
+        else:
+            metadata["vad_status"] = "failed"
+
+        with open(json_path, "w") as f:
+            json.dump(metadata, f, indent=2)
+
+    except Exception as e:
+        print(f"[vad] Background silence removal failed for {basename}: {e}")
+    finally:
+        with vad_tasks_lock:
+            vad_tasks.pop(basename, None)
+
+
+def _start_vad(basename, max_silence_ms=500):
+    """Spawn silence removal thread if not already running for this file."""
+    if not _check_vad_available():
+        return
+    with vad_tasks_lock:
+        if basename in vad_tasks:
+            return
+        t = threading.Thread(target=_background_vad, args=(basename, max_silence_ms), daemon=True)
+        vad_tasks[basename] = t
         t.start()
 
 

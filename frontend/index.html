@@ -663,13 +663,80 @@
       animation: align-pop 0.4s ease-out;
     }
 
-    /* Enhance toggle button */
-    #np-enhance { transition: all 0.3s; }
-    #np-enhance.is-active { color: var(--teal) !important; background: rgba(78,205,196,0.12) !important; border-color: rgba(78,205,196,0.3) !important; }
-    #np-enhance.is-loading svg { animation: align-pulse 1.2s ease-in-out infinite; }
-    #np-enhance.is-loading #np-enhance-label { animation: align-pulse 1.2s ease-in-out infinite; }
-    #np-enhance:disabled { opacity: 0.4; cursor: not-allowed; }
-    #np-enhance:not(:disabled):hover { border-color: var(--teal); color: var(--teal); }
+    /* Processing stepper */
+    .stepper { display: flex; align-items: center; justify-content: center; gap: 0; padding: 0 8px; }
+    .step-node { display: flex; align-items: center; gap: 8px; position: relative; z-index: 1; }
+    .step-dot {
+      width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; font-family: 'IBM Plex Mono', monospace;
+      border: 2px solid var(--border); background: var(--surface); color: var(--text-faint);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .step-label { font-size: 11px; font-weight: 600; color: var(--text-faint); transition: color 0.3s; white-space: nowrap; }
+    .step-line { width: 32px; height: 2px; background: var(--border); transition: background 0.4s; flex-shrink: 0; margin: 0 4px; }
+
+    .step-node[data-state="active"] .step-dot {
+      border-color: var(--coral); background: linear-gradient(135deg, #FF6B6B, #FF4747);
+      color: white; box-shadow: 0 0 16px rgba(255, 107, 107, 0.4);
+      animation: step-pulse 1.5s ease-in-out infinite;
+    }
+    .step-node[data-state="active"] .step-label { color: var(--coral); }
+
+    .step-node[data-state="done"] .step-dot {
+      border-color: var(--teal); background: linear-gradient(135deg, #4ECDC4, #2FB8AE);
+      color: white; box-shadow: 0 2px 8px rgba(78, 205, 196, 0.3);
+    }
+    .step-node[data-state="done"] .step-label { color: var(--teal); }
+
+    .step-line.done { background: linear-gradient(90deg, var(--teal), var(--teal)); }
+    .step-line.active { background: linear-gradient(90deg, var(--teal), var(--coral)); }
+
+    @keyframes step-pulse {
+      0%, 100% { box-shadow: 0 0 16px rgba(255, 107, 107, 0.4); }
+      50% { box-shadow: 0 0 24px rgba(255, 107, 107, 0.6); }
+    }
+
+    /* Generate button step-color overrides */
+    .gen-btn.step-enhance {
+      background: linear-gradient(135deg, #4ECDC4 0%, #2FB8AE 50%, #1A7B74 100%) !important;
+      box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+    }
+    .gen-btn.step-enhance:hover:not(:disabled) {
+      box-shadow: 0 0 30px rgba(78, 205, 196, 0.4), 0 0 60px rgba(78, 205, 196, 0.15), 0 8px 32px rgba(78, 205, 196, 0.25) !important;
+    }
+    .gen-btn.step-vad {
+      background: linear-gradient(135deg, #FFE66D 0%, #F5D442 50%, #D4B12E 100%) !important;
+      color: #4D3F0D !important;
+      box-shadow: 0 4px 20px rgba(255, 230, 109, 0.3), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+    }
+    .gen-btn.step-vad:hover:not(:disabled) {
+      box-shadow: 0 0 30px rgba(255, 230, 109, 0.4), 0 0 60px rgba(255, 230, 109, 0.15), 0 8px 32px rgba(255, 230, 109, 0.25) !important;
+    }
+    .gen-btn.step-mp3 {
+      background: linear-gradient(135deg, #C4B5FD 0%, #A78BFA 50%, #7C3AED 100%) !important;
+      color: white !important;
+      box-shadow: 0 4px 20px rgba(167, 139, 250, 0.3), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+    }
+    .gen-btn.step-mp3:hover:not(:disabled) {
+      box-shadow: 0 0 30px rgba(167, 139, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.15), 0 8px 32px rgba(167, 139, 250, 0.25) !important;
+    }
+    .gen-btn.step-done {
+      background: linear-gradient(135deg, #4ECDC4 0%, #2FB8AE 100%) !important;
+      box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3) !important;
+    }
+
+    /* Audio version selector */
+    .ver-btn[data-active="true"] {
+      background: var(--surface) !important;
+      color: var(--text) !important;
+      box-shadow: var(--shadow-sm);
+    }
+    .ver-btn[data-active="true"][data-ver="original"] { color: var(--coral) !important; }
+    .ver-btn[data-active="true"][data-ver="enhanced"] { color: var(--teal) !important; }
+    .ver-btn[data-active="true"][data-ver="cleaned"] { color: #D4B12E !important; }
+    .ver-btn:disabled { opacity: 0.35; cursor: not-allowed !important; }
+    .ver-btn:not(:disabled):hover { color: var(--text-muted) !important; background: rgba(0,0,0,0.03) !important; }
+    .ver-btn.is-loading { animation: align-pulse 1.2s ease-in-out infinite; }
   </style>
 </head>
 
@@ -790,6 +857,22 @@
                 </svg>
               </div>
             </div>
+            <div id="silence-select-wrap" style="width:90px;flex-shrink:0;display:none">
+              <label class="block text-[11px] font-bold uppercase tracking-[0.15em] mb-3"
+                style="color:var(--text-muted)">Silence</label>
+              <div style="position:relative">
+                <select id="silence-select" class="input-field"
+                  style="width:100%;padding:12px 12px;padding-right:28px;font-size:14px;font-weight:500;-webkit-appearance:none;appearance:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;text-align:center"
+                  onchange="localStorage.setItem('kittenTTS-silence',this.value)"
+                  title="Remove silences longer than this">
+                </select>
+                <svg
+                  style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted)"
+                  width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M1.5 3.5l3.5 3.5 3.5-3.5" />
+                </svg>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -819,6 +902,31 @@
             </div>
           </div>
         </section>
+
+        <!-- Processing Stepper -->
+        <div id="process-stepper" class="card p-4 mb-4 reveal" style="animation-delay:0.16s;display:none">
+          <div class="stepper">
+            <div class="step-node" data-step="1" data-state="pending">
+              <div class="step-dot">1</div>
+              <span class="step-label">Generating</span>
+            </div>
+            <div class="step-line" data-line="1"></div>
+            <div class="step-node" data-step="2" data-state="pending">
+              <div class="step-dot">2</div>
+              <span class="step-label">Enhancing</span>
+            </div>
+            <div class="step-line" data-line="2"></div>
+            <div class="step-node" data-step="3" data-state="pending">
+              <div class="step-dot">3</div>
+              <span class="step-label">Removing Silence</span>
+            </div>
+            <div class="step-line" data-line="3"></div>
+            <div class="step-node" data-step="4" data-state="pending">
+              <div class="step-dot">4</div>
+              <span class="step-label">Converting MP3</span>
+            </div>
+          </div>
+        </div>
 
         <!-- Generate -->
         <button id="generate-btn" class="gen-btn reveal"
@@ -921,41 +1029,29 @@
 
       <!-- Actions -->
       <div class="flex items-center gap-1" style="flex-shrink:0">
-        <!-- Enhance toggle with label -->
-        <button id="np-enhance" onclick="toggleEnhance()" title="Toggle enhanced audio" disabled
-          style="height:30px;border-radius:8px;display:none;align-items:center;gap:5px;padding:0 10px;color:var(--text-muted);background:transparent;border:1px solid var(--border);cursor:pointer;transition:all 0.2s;font-family:inherit;font-size:10px;white-space:nowrap">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z"/></svg>
-          <span id="np-enhance-label">Enhance</span>
-        </button>
-        <!-- Enhanced download -->
-        <a id="np-download-enhanced" href="#" download title="Download enhanced WAV (48kHz)"
-          style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:var(--teal);transition:all 0.2s;text-decoration:none"
-          onmouseover="this.style.background='rgba(78,205,196,0.08)'"
-          onmouseout="this.style.background='transparent'">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M20 21H4"/></svg>
-        </a>
-        <!-- Enhanced MP3 -->
-        <button id="np-mp3-enhanced" onclick="convertEnhancedToMp3()" title="Download enhanced as MP3"
-          style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:var(--accent);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
-          onmouseover="this.style.background='rgba(255,230,109,0.1)'"
+        <!-- (legacy enhance toggle removed — replaced by version selector) -->
+        <!-- Audio version selector -->
+        <div id="np-version-group" style="display:none;align-items:center;gap:2px;background:var(--surface-alt);border-radius:8px;padding:2px;border:1px solid var(--border)">
+          <button class="ver-btn" data-ver="original" onclick="switchAudioVersion('original')" title="Original (24kHz)"
+            style="padding:4px 8px;border-radius:6px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;border:none;cursor:pointer;transition:all 0.2s;background:transparent;color:var(--text-faint);white-space:nowrap">
+            Original
+          </button>
+          <button class="ver-btn" data-ver="enhanced" onclick="switchAudioVersion('enhanced')" title="Enhanced (48kHz)" disabled
+            style="padding:4px 8px;border-radius:6px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;border:none;cursor:pointer;transition:all 0.2s;background:transparent;color:var(--text-faint);white-space:nowrap">
+            Enhanced
+          </button>
+          <button class="ver-btn" data-ver="cleaned" onclick="switchAudioVersion('cleaned')" title="Silence removed" disabled
+            style="padding:4px 8px;border-radius:6px;font-size:9px;font-weight:600;font-family:'IBM Plex Mono',monospace;border:none;cursor:pointer;transition:all 0.2s;background:transparent;color:var(--text-faint);white-space:nowrap">
+            Cleaned
+          </button>
+        </div>
+        <!-- Cleaned MP3 download -->
+        <button id="np-mp3-cleaned" onclick="downloadCleanedMp3()" title="Download cleaned MP3 (silence removed)"
+          style="width:30px;height:30px;border-radius:8px;display:none;align-items:center;justify-content:center;color:#A78BFA;background:transparent;border:none;cursor:pointer;transition:all 0.2s"
+          onmouseover="this.style.background='rgba(167,139,250,0.1)'"
           onmouseout="this.style.background='transparent'">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
         </button>
-        <!-- Divider (shown when enhance available) -->
-        <div id="np-enhance-sep" style="display:none;width:1px;height:20px;background:var(--text-faint);opacity:0.2;margin:0 2px"></div>
-        <!-- Original actions -->
-        <button id="np-mp3" onclick="convertToMp3()" title="Convert to MP3"
-          style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
-          onmouseover="this.style.color='var(--accent)';this.style.background='rgba(255,230,109,0.1)'"
-          onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-        </button>
-        <a id="np-download" href="#" download title="Download WAV"
-          style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all 0.2s;text-decoration:none"
-          onmouseover="this.style.color='var(--teal)';this.style.background='rgba(78,205,196,0.08)'"
-          onmouseout="this.style.color='var(--text-muted)';this.style.background='transparent'">
-          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M20 21H4"/></svg>
-        </a>
         <button id="np-delete" onclick="deleteNowPlaying()" title="Delete"
           style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:transparent;border:none;cursor:pointer;transition:all 0.2s"
           onmouseover="this.style.color='var(--coral)';this.style.background='rgba(255,107,107,0.08)'"
@@ -982,7 +1078,10 @@
         : window.matchMedia('(prefers-color-scheme: dark)').matches,
       downloadEventSource: null, eqInterval: null, ffmpeg: false,
       alignment: null, alignmentAvailable: false, alignmentPollTimer: null, activeWordIndex: -1,
-  enhanceAvailable: false, enhancePollTimer: null, playingEnhanced: false,
+      enhanceAvailable: false, enhancePollTimer: null,
+      vadAvailable: false, vadPollTimer: null,
+      activeVersion: 'original', // 'original' | 'enhanced' | 'cleaned'
+      processingStep: 0, // 0=idle, 1=generating, 2=enhancing, 3=removing silence
     };
 
     const $ = s => document.querySelector(s);
@@ -1043,6 +1142,7 @@
         STATE.ffmpeg = health.ffmpeg || false;
         STATE.alignmentAvailable = health.alignment || false;
     STATE.enhanceAvailable = health.enhance || false;
+        STATE.vadAvailable = health.vad || false;
         // Populate speed select (0.50 to 2.00 in 0.05 steps)
         const speedSel = $('#speed-select');
         for (let v = 0.50; v <= 2.005; v += 0.05) {
@@ -1054,6 +1154,20 @@
         }
         const savedSpeed = localStorage.getItem('kittenTTS-speed');
         if (savedSpeed && speedSel.querySelector(`option[value="${savedSpeed}"]`)) speedSel.value = savedSpeed;
+        // Populate silence threshold select (0.2s to 1.0s in 0.1s steps) — only if VAD available
+        if (STATE.vadAvailable) {
+          $('#silence-select-wrap').style.display = '';
+          const silSel = $('#silence-select');
+          for (let v = 0.2; v <= 1.005; v += 0.1) {
+            const ms = Math.round(v * 1000);
+            const opt = document.createElement('option');
+            opt.value = ms; opt.textContent = v.toFixed(1) + 's';
+            if (ms === 500) opt.selected = true;
+            silSel.appendChild(opt);
+          }
+          const savedSil = localStorage.getItem('kittenTTS-silence');
+          if (savedSil && silSel.querySelector(`option[value="${savedSil}"]`)) silSel.value = savedSil;
+        }
         $('#model-select').value = STATE.selectedModel;
         $('#model-size').textContent = MODEL_SIZES[STATE.selectedModel] || '';
         const savedPrompt = localStorage.getItem('kittenTTS-prompt');
@@ -1174,14 +1288,67 @@
     // ======================================================================
     // Generate
     // ======================================================================
+    // ---- Stepper UI ----
+    function showStepper() { $('#process-stepper').style.display = 'block'; }
+    function hideStepper() { $('#process-stepper').style.display = 'none'; resetStepperStates(); }
+    function resetStepperStates() {
+      document.querySelectorAll('.step-node').forEach(n => n.dataset.state = 'pending');
+      document.querySelectorAll('.step-line').forEach(l => { l.classList.remove('done', 'active'); });
+      STATE.processingStep = 0;
+    }
+    function setStepActive(step) {
+      STATE.processingStep = step;
+      document.querySelectorAll('.step-node').forEach(n => {
+        const s = parseInt(n.dataset.step);
+        if (s < step) n.dataset.state = 'done';
+        else if (s === step) n.dataset.state = 'active';
+        else n.dataset.state = 'pending';
+      });
+      document.querySelectorAll('.step-line').forEach(l => {
+        const li = parseInt(l.dataset.line);
+        l.classList.toggle('done', li < step);
+        l.classList.toggle('active', li === step);
+      });
+      // Update generate button
+      const btn = $('#generate-btn');
+      const label = $('#gen-label');
+      const sp = $('#gen-spinner');
+      btn.classList.remove('step-enhance', 'step-vad', 'step-mp3', 'step-done');
+      sp.style.display = 'inline-block'; sp.classList.remove('hidden');
+      if (step === 1) { label.textContent = 'Generating...'; }
+      else if (step === 2) { label.textContent = 'Enhancing...'; btn.classList.add('step-enhance'); }
+      else if (step === 3) { label.textContent = 'Removing Silence...'; btn.classList.add('step-vad'); }
+      else if (step === 4) { label.textContent = 'Converting MP3...'; btn.classList.add('step-mp3'); }
+    }
+    function setStepDone() {
+      document.querySelectorAll('.step-node').forEach(n => n.dataset.state = 'done');
+      document.querySelectorAll('.step-line').forEach(l => { l.classList.add('done'); l.classList.remove('active'); });
+      const btn = $('#generate-btn');
+      btn.classList.remove('step-enhance', 'step-vad', 'step-mp3');
+      btn.classList.add('step-done');
+      $('#gen-label').textContent = 'Done!';
+      $('#gen-spinner').style.display = 'none';
+      setTimeout(() => {
+        btn.classList.remove('step-done');
+        btn.disabled = false;
+        $('#gen-label').textContent = 'Generate Audio';
+        STATE.isGenerating = false;
+        STATE.processingStep = 0;
+      }, 2000);
+    }
+
     function setGenerating(on) {
       STATE.isGenerating = on;
       const btn = $('#generate-btn');
       btn.disabled = on;
-      $('#gen-label').textContent = on ? 'Generating...' : 'Generate Audio';
+      if (!on && STATE.processingStep === 0) {
+        $('#gen-label').textContent = 'Generate Audio';
+        btn.classList.remove('step-enhance', 'step-vad', 'step-mp3', 'step-done');
+      }
       const sp = $('#gen-spinner');
-      sp.style.display = on ? 'inline-block' : 'none';
-      sp.classList.toggle('hidden', !on);
+      if (!on && STATE.processingStep === 0) {
+        sp.style.display = 'none'; sp.classList.add('hidden');
+      }
     }
 
     async function handleGenerate() {
@@ -1189,18 +1356,113 @@
       if (!prompt) { toast('Enter a prompt first', 'error'); return; }
       if (STATE.isGenerating) return;
       setGenerating(true);
+      showStepper();
+      setStepActive(1);
       try {
         const status = await api(`/api/model-status/${STATE.selectedModel}`);
         if (!status.cached) await downloadModel(STATE.selectedModel);
         const speed = parseFloat($('#speed-select').value) || 1.0;
+        const max_silence_ms = parseInt($('#silence-select').value) || 500;
         const result = await api('/api/generate', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: STATE.selectedModel, voice: STATE.selectedVoice, prompt, speed }),
+          body: JSON.stringify({ model: STATE.selectedModel, voice: STATE.selectedVoice, prompt, speed, max_silence_ms }),
         });
         toast(`Generated in ${result.inference_time}s (RTF ${result.rtf})`);
         playAudio(result);
-      } catch (e) { toast(e.message || 'Generation failed', 'error'); }
-      finally { setGenerating(false); await loadHistory(); }
+        await loadHistory();
+
+        // Step 2: Enhancing (poll)
+        if (STATE.enhanceAvailable) {
+          setStepActive(2);
+          await pollUntilDone(`/api/audio/${result.filename}/enhance-status`, 'ready', 'enhancing', 1500);
+        }
+
+        // Step 3: Removing Silence (poll)
+        if (STATE.vadAvailable) {
+          setStepActive(3);
+          await pollUntilDone(`/api/audio/${result.filename}/vad-status`, 'ready', 'cleaning', 1500);
+        }
+
+        // Step 4: Auto-convert cleaned file to MP3
+        if (STATE.ffmpeg && STATE.nowPlaying && STATE.nowPlaying._cleanedFilename) {
+          setStepActive(4);
+          await autoConvertMp3(STATE.nowPlaying._cleanedFilename);
+          STATE.nowPlaying._cleanedMp3 = true;
+          updateCleanedMp3Btn();
+        }
+
+        // All done
+        setStepDone();
+        // Refresh version buttons
+        pollVersionStatuses(result.filename);
+        await loadHistory();
+
+      } catch (e) {
+        toast(e.message || 'Generation failed', 'error');
+        hideStepper();
+        setGenerating(false);
+      }
+    }
+
+    function pollUntilDone(url, doneStatus, pendingStatus, interval) {
+      return new Promise((resolve, reject) => {
+        async function check() {
+          try {
+            const data = await api(url);
+            if (data.status === doneStatus) {
+              // Store filenames in nowPlaying
+              if (data.enhanced_filename && STATE.nowPlaying) STATE.nowPlaying._enhancedFilename = data.enhanced_filename;
+              if (data.cleaned_filename && STATE.nowPlaying) STATE.nowPlaying._cleanedFilename = data.cleaned_filename;
+              resolve(data);
+            } else if (data.status === 'unavailable' || data.status === 'failed') {
+              resolve(data);
+            } else {
+              setTimeout(check, interval);
+            }
+          } catch (e) { reject(e); }
+        }
+        check();
+      });
+    }
+
+    function autoConvertMp3(wavFilename) {
+      return new Promise((resolve, reject) => {
+        const es = new EventSource(`/api/audio/${wavFilename}/mp3-convert`);
+        es.onmessage = (ev) => {
+          const d = JSON.parse(ev.data);
+          if (d.phase === 'done') { es.close(); resolve(); }
+          else if (d.phase === 'error') { es.close(); reject(new Error(d.message || 'MP3 conversion failed')); }
+        };
+        es.onerror = () => { es.close(); reject(new Error('MP3 conversion failed')); };
+      });
+    }
+
+    function updateCleanedMp3Btn() {
+      const btn = $('#np-mp3-cleaned');
+      if (!btn) return;
+      const np = STATE.nowPlaying;
+      if (np && np._cleanedFilename && np._cleanedMp3) {
+        btn.style.display = 'flex';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    function downloadCleanedMp3() {
+      if (!STATE.nowPlaying || !STATE.nowPlaying._cleanedFilename) return;
+      const cleanedWav = STATE.nowPlaying._cleanedFilename;
+      const mp3Name = cleanedWav.replace('.wav', '.mp3');
+      fetch(`/api/audio/${cleanedWav}/mp3`)
+        .then(res => { if (!res.ok) throw new Error('Not found'); return res.blob(); })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = mp3Name;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 5000);
+          toast('Cleaned MP3 downloaded');
+        })
+        .catch(() => toast('MP3 not ready yet', 'error'));
     }
 
     function downloadModel(modelId) {
@@ -1242,9 +1504,10 @@
       setTimeout(() => { np.style.display = 'none'; }, 400);
       if (STATE.alignmentPollTimer) { clearInterval(STATE.alignmentPollTimer); STATE.alignmentPollTimer = null; }
       if (STATE.enhancePollTimer) { clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null; }
+      if (STATE.vadPollTimer) { clearInterval(STATE.vadPollTimer); STATE.vadPollTimer = null; }
       resetHistKaraoke();
       STATE.alignment = null; STATE.activeWordIndex = -1;
-      STATE.playingEnhanced = false; updateEnhanceBtn();
+      STATE.activeVersion = 'original'; updateVersionBtns(); updateCleanedMp3Btn();
     }
     function playAudio(meta) {
       STATE.nowPlaying = meta;
@@ -1255,14 +1518,13 @@
       $('#np-model').textContent = meta.model_id || 'mini';
       $('#np-voice').textContent = meta.voice;
       $('#np-rtf').textContent = 'RTF ' + meta.rtf;
-      $('#np-download').href = `/audio/${meta.filename}`;
-      $('#np-download').download = meta.filename;
       updatePlayIcon();
       activateHistKaraoke(meta.filename);
-      // Enhancement toggle
-      STATE.playingEnhanced = false;
-      updateEnhanceBtn();
-      if (STATE.enhanceAvailable) pollEnhanceStatus(meta.filename);
+      // Audio version selector
+      STATE.activeVersion = 'original';
+      updateVersionBtns();
+      updateCleanedMp3Btn();
+      pollVersionStatuses(meta.filename);
     }
     function togglePlayback() { if (audioEl.paused) audioEl.play(); else audioEl.pause(); updatePlayIcon(); }
     function updatePlayIcon() {
@@ -1441,163 +1703,106 @@
     }
 
     // ======================================================================
-    // Audio Enhancement (LavaSR) — original/enhanced toggle
+    // Audio Version Switching (Original / Enhanced / Cleaned)
     // ======================================================================
-    function _showEnhanceGroup(show) {
-      const d = show ? 'flex' : 'none';
-      $('#np-enhance').style.display = d;
-      $('#np-enhance-sep').style.display = show ? 'block' : 'none';
-      // Download/MP3 buttons only visible when enhanced is ready
-      if (!show) {
-        $('#np-download-enhanced').style.display = 'none';
-        $('#np-mp3-enhanced').style.display = 'none';
-      }
+    function showVersionGroup(show) {
+      $('#np-version-group').style.display = show ? 'flex' : 'none';
     }
-    function _showEnhanceActions(ready) {
-      const d = ready ? 'flex' : 'none';
-      $('#np-download-enhanced').style.display = d;
-      $('#np-mp3-enhanced').style.display = d;
-      if (ready && STATE.nowPlaying && STATE.nowPlaying._enhancedFilename) {
-        $('#np-download-enhanced').href = `/audio/${STATE.nowPlaying._enhancedFilename}`;
-        $('#np-download-enhanced').download = STATE.nowPlaying._enhancedFilename;
-      }
+    function updateVersionBtns() {
+      const np = STATE.nowPlaying;
+      if (!np) { showVersionGroup(false); return; }
+      const hasEnhanced = !!np._enhancedFilename;
+      const hasCleaned = !!np._cleanedFilename;
+      if (!hasEnhanced && !hasCleaned) { showVersionGroup(false); return; }
+      showVersionGroup(true);
+      const enhBtn = document.querySelector('.ver-btn[data-ver="enhanced"]');
+      const clnBtn = document.querySelector('.ver-btn[data-ver="cleaned"]');
+      enhBtn.disabled = !hasEnhanced;
+      clnBtn.disabled = !hasCleaned;
+      if (hasEnhanced) enhBtn.classList.remove('is-loading');
+      if (hasCleaned) clnBtn.classList.remove('is-loading');
+      // Highlight active version
+      document.querySelectorAll('.ver-btn').forEach(b => {
+        b.dataset.active = (b.dataset.ver === STATE.activeVersion) ? 'true' : 'false';
+      });
     }
-    function updateEnhanceBtn() {
-      const btn = $('#np-enhance');
-      const label = $('#np-enhance-label');
-      if (!STATE.enhanceAvailable) { _showEnhanceGroup(false); return; }
-      _showEnhanceGroup(true);
-      btn.classList.toggle('is-active', STATE.playingEnhanced);
-      if (btn.disabled) {
-        label.textContent = 'Enhancing...';
-        btn.title = 'Audio is being enhanced — please wait';
-        _showEnhanceActions(false);
-      } else if (STATE.playingEnhanced) {
-        label.textContent = 'Enhanced';
-        btn.title = 'Playing enhanced 48kHz — click to switch to original';
-        _showEnhanceActions(true);
-      } else {
-        label.textContent = 'Original';
-        btn.title = 'Playing original 24kHz — click to switch to enhanced';
-        _showEnhanceActions(true);
-      }
-    }
-    function pollEnhanceStatus(filename) {
-      if (STATE.enhancePollTimer) { clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null; }
-      const btn = $('#np-enhance');
-      async function poll() {
-        try {
-          const data = await api(`/api/audio/${filename}/enhance-status`);
-          if (data.status === 'ready' && data.enhanced_filename) {
-            clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
-            if (STATE.nowPlaying) STATE.nowPlaying._enhancedFilename = data.enhanced_filename;
-            btn.disabled = false;
-            btn.classList.remove('is-loading');
-            updateEnhanceBtn();
-            toast('Enhanced audio ready');
-          } else if (data.status === 'unavailable') {
-            clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
-            _showEnhanceGroup(false);
-          } else {
-            btn.disabled = true;
-            btn.classList.add('is-loading');
-            updateEnhanceBtn();
-          }
-        } catch (e) { console.error('[enhance] poll error:', e); }
-      }
-      btn.disabled = true;
-      btn.classList.add('is-loading');
-      _showEnhanceGroup(true);
-      updateEnhanceBtn();
-      poll();
-      STATE.enhancePollTimer = setInterval(poll, 1500);
-    }
-    function toggleEnhance() {
-      if (!STATE.nowPlaying || !STATE.nowPlaying._enhancedFilename) return;
+    function switchAudioVersion(ver) {
+      const np = STATE.nowPlaying;
+      if (!np) return;
+      let src;
+      if (ver === 'enhanced' && np._enhancedFilename) src = `/audio/${np._enhancedFilename}`;
+      else if (ver === 'cleaned' && np._cleanedFilename) src = `/audio/${np._cleanedFilename}`;
+      else src = `/audio/${np.filename}`;
+
       const wasPlaying = !audioEl.paused;
       const pos = audioEl.currentTime;
-      STATE.playingEnhanced = !STATE.playingEnhanced;
-      if (STATE.playingEnhanced) {
-        audioEl.src = `/audio/${STATE.nowPlaying._enhancedFilename}`;
-      } else {
-        audioEl.src = `/audio/${STATE.nowPlaying.filename}`;
-      }
+      STATE.activeVersion = ver;
+      audioEl.src = src;
       audioEl.currentTime = pos;
       if (wasPlaying) audioEl.play();
-      updateEnhanceBtn();
+      updateVersionBtns();
     }
-    function convertEnhancedToMp3() {
-      if (!STATE.nowPlaying || !STATE.nowPlaying._enhancedFilename) return;
-      const enhancedFilename = STATE.nowPlaying._enhancedFilename;
-      const btn = $('#np-mp3-enhanced');
-      const originalHTML = btn.innerHTML;
-      btn.disabled = true;
-      const es = new EventSource(`/api/audio/${enhancedFilename}/mp3-convert`);
-      function resetBtn() { btn.innerHTML = originalHTML; btn.disabled = false; }
-      es.onmessage = async (ev) => {
-        const d = JSON.parse(ev.data);
-        if (d.phase === 'converting') {
-          btn.innerHTML = `<span class="font-mono" style="font-size:9px;color:var(--accent)">${d.progress}%</span>`;
-        } else if (d.phase === 'done') {
-          es.close();
-          btn.innerHTML = `<span class="font-mono" style="font-size:9px;color:var(--teal)">100%</span>`;
+    function pollVersionStatuses(filename) {
+      // Poll both enhance and vad statuses to enable buttons
+      if (STATE.enhancePollTimer) { clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null; }
+      if (STATE.vadPollTimer) { clearInterval(STATE.vadPollTimer); STATE.vadPollTimer = null; }
+
+      const enhBtn = document.querySelector('.ver-btn[data-ver="enhanced"]');
+      const clnBtn = document.querySelector('.ver-btn[data-ver="cleaned"]');
+
+      if (STATE.enhanceAvailable) {
+        enhBtn.classList.add('is-loading');
+        showVersionGroup(true);
+        async function pollEnh() {
           try {
-            const res = await fetch(`/api/audio/${enhancedFilename}/mp3`);
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = enhancedFilename.replace('.wav', '.mp3');
-            document.body.appendChild(a); a.click(); a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
-            toast('Enhanced MP3 downloaded');
-          } catch (e) { toast('Download failed', 'error'); }
-          resetBtn();
-        } else if (d.phase === 'error') { es.close(); resetBtn(); toast(d.message || 'Conversion failed', 'error'); }
-      };
-      es.onerror = () => { es.close(); resetBtn(); toast('Conversion failed', 'error'); };
-    }
-
-    function convertToMp3() {
-      if (!STATE.nowPlaying) return;
-      if (!STATE.ffmpeg) {
-        toast('ffmpeg not found — place ffmpeg.exe in the bin/ folder or install it system-wide', 'error');
-        return;
-      }
-      const btn = $('#np-mp3');
-      const originalHTML = btn.innerHTML;
-      btn.disabled = true;
-
-      const es = new EventSource(`/api/audio/${STATE.nowPlaying.filename}/mp3-convert`);
-
-      function resetBtn() { btn.innerHTML = originalHTML; btn.disabled = false; }
-
-      es.onmessage = async (ev) => {
-        const d = JSON.parse(ev.data);
-        if (d.phase === 'converting') {
-          btn.innerHTML = `<span class="font-mono" style="font-size:10px;font-weight:600;color:var(--accent-500,var(--accent,#FFE66D))">${d.progress}%</span>`;
-        } else if (d.phase === 'done') {
-          es.close();
-          btn.innerHTML = `<span class="font-mono" style="font-size:10px;font-weight:600;color:var(--teal)">100%</span>`;
-          try {
-            const res = await fetch(`/api/audio/${STATE.nowPlaying.filename}/mp3`);
-            if (!res.ok) throw new Error('Download failed');
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = STATE.nowPlaying.filename.replace('.wav', '.mp3');
-            document.body.appendChild(a); a.click(); a.remove();
-            URL.revokeObjectURL(url);
-            toast('MP3 downloaded');
-          } catch (e) { toast(e.message, 'error'); }
-          finally { resetBtn(); }
-        } else if (d.phase === 'error') {
-          es.close(); resetBtn();
-          toast(d.message || 'Conversion failed', 'error');
+            const data = await api(`/api/audio/${filename}/enhance-status`);
+            if (data.status === 'ready' && data.enhanced_filename) {
+              clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
+              if (STATE.nowPlaying) STATE.nowPlaying._enhancedFilename = data.enhanced_filename;
+              enhBtn.classList.remove('is-loading');
+              updateVersionBtns();
+            } else if (data.status === 'unavailable') {
+              clearInterval(STATE.enhancePollTimer); STATE.enhancePollTimer = null;
+              enhBtn.classList.remove('is-loading');
+            }
+          } catch (e) { console.error('[enhance] poll error:', e); }
         }
-      };
+        pollEnh();
+        STATE.enhancePollTimer = setInterval(pollEnh, 1500);
+      }
 
-      es.onerror = () => { es.close(); resetBtn(); toast('Conversion failed', 'error'); };
+      if (STATE.vadAvailable) {
+        clnBtn.classList.add('is-loading');
+        showVersionGroup(true);
+        async function pollVad() {
+          try {
+            const data = await api(`/api/audio/${filename}/vad-status`);
+            if (data.status === 'ready' && data.cleaned_filename) {
+              clearInterval(STATE.vadPollTimer); STATE.vadPollTimer = null;
+              if (STATE.nowPlaying) {
+                STATE.nowPlaying._cleanedFilename = data.cleaned_filename;
+                // Check if cleaned MP3 already exists
+                try {
+                  const mp3Check = await fetch(`/api/audio/${data.cleaned_filename}/mp3`, { method: 'HEAD' });
+                  if (mp3Check.ok) STATE.nowPlaying._cleanedMp3 = true;
+                } catch (_) {}
+                updateCleanedMp3Btn();
+              }
+              clnBtn.classList.remove('is-loading');
+              updateVersionBtns();
+            } else if (data.status === 'unavailable') {
+              clearInterval(STATE.vadPollTimer); STATE.vadPollTimer = null;
+              clnBtn.classList.remove('is-loading');
+            }
+          } catch (e) { console.error('[vad] poll error:', e); }
+        }
+        pollVad();
+        STATE.vadPollTimer = setInterval(pollVad, 1500);
+      }
     }
+    // Legacy compat
+    function updateEnhanceBtn() { updateVersionBtns(); }
+    function toggleEnhance() { switchAudioVersion(STATE.activeVersion === 'enhanced' ? 'original' : 'enhanced'); }
 
     async function deleteNowPlaying() {
       if (!STATE.nowPlaying) return;
